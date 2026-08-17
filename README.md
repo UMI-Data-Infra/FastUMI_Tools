@@ -2,7 +2,7 @@
 
 FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先分散在版本检测、`FastUMI_SDK`、`FastUMI_Monitor` 和 `FastUMI_Camera` 中的常用能力集中到一个简洁的 Web 界面中。
 
-当前项目版本：**0.1.1**
+项目版本以根目录的 [`VERSION`](VERSION) 为唯一来源；已发布版本及安装包见 [GitHub Releases](https://github.com/KM-Data-Pipeline/FastUMI_Tools/releases)。
 
 > 系统要求：仅支持 **Ubuntu 20.04 LTS（Focal）amd64**，不支持 Ubuntu 22.04（Jammy）。软件会在不受支持的系统上阻止 SDK 安装和固件刷新。
 
@@ -72,7 +72,7 @@ python3 -m fastumi_tools.server --port 8765
 输出：
 
 ```text
-dist/fastumi-tools_0.1.1_amd64.deb
+dist/fastumi-tools_<VERSION>_amd64.deb
 ```
 
 构建包含全部 SDK 和固件的离线包：
@@ -88,6 +88,13 @@ sudo ./install.sh
 ```
 
 核心 `.deb` 管理程序、systemd 服务、桌面入口和系统卸载；离线包管理不断更新的大型 SDK/固件资源。
+
+## 版本管理
+
+- `VERSION` 是 FastUMI Tools 软件版本的唯一来源。Python 后端、Web 界面、Debian 包名和离线包名都会在运行或构建时读取它。
+- 发布时先按语义化版本规则更新 `VERSION`，合并到 `main` 后创建同名 Git tag，例如 `v0.1.2`，并用 GitHub Release 保存对应安装包。
+- 日常功能开发使用短期分支，合并后删除；不为每个历史版本保留长期 branch。历史版本通过不可移动的 Git tag 查询。
+- `payloads/manifest.json` 只管理 SDK、固件、兼容关系及 `catalog_version`，不再重复记录软件版本。资源更新与软件版本可以独立演进。
 
 ## 项目结构
 
