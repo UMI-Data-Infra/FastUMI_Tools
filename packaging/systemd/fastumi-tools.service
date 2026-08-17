@@ -15,8 +15,9 @@ Restart=on-failure
 RestartSec=2
 PrivateTmp=true
 ProtectKernelTunables=true
-ProtectKernelModules=true
+ProtectKernelModules=false
 ProtectControlGroups=true
+ReadWritePaths=-/sys/bus/usb/drivers/uvcvideo
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]

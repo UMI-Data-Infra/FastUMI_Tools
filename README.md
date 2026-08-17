@@ -12,11 +12,13 @@ FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先
 - 在 Web 界面选择并安装 2026-04-30 或 2026-05-22 XVSDK，仅提供 Ubuntu 20.04 Focal 版本。
 - 选择并刷新 2026-04-30 或 2026-05-14 PMD-TOF 固件。
 - 固件刷新前检查单设备、USB 连接、进程占用、SDK 最低版本和资源 SHA-256。
-- ROS1 设备发现、Topic 频率检测、ROS1 wrapper 安装和 RViz 可视化。
-- V4L2 低延迟相机预览和 RGB 标定控制台。
+- 受管 ROS1 数据源、设备发现、Topic 频率检测、ROS1 wrapper 安装和 RViz 可视化。
+- V4L2 低延迟相机预览和 RGB 标定控制台；停止 ROS 数据源时自动恢复 UVC 视频设备。
 - 后台任务实时日志与历史记录。
 
 Web 服务只监听 `127.0.0.1`。修改系统的操作要求桌面入口提供的临时访问令牌，后端只接受预定义动作和参数，不提供任意命令接口。
+
+> XVSDK ROS wrapper 与 V4L2 预览会竞争同一相机的 USB 接口，不能同时运行。请在“数据监控”中启动 ROS 数据源；需要实时预览时，点击“停止并恢复相机预览”，程序会停止受管 ROS 进程并重新绑定 `uvcvideo`。
 
 ## 界面入口
 
@@ -92,7 +94,7 @@ sudo ./install.sh
 ## 版本管理
 
 - `VERSION` 是 FastUMI Tools 软件版本的唯一来源。Python 后端、Web 界面、Debian 包名和离线包名都会在运行或构建时读取它。
-- 发布时先按语义化版本规则更新 `VERSION`，合并到 `main` 后创建同名 Git tag，例如 `v0.1.2`，并用 GitHub Release 保存对应安装包。
+- 发布时先按语义化版本规则更新 `VERSION`，合并到 `main` 后创建同名 Git tag，例如 `v0.1.3`，并用 GitHub Release 保存对应安装包。
 - 日常功能开发使用短期分支，合并后删除；不为每个历史版本保留长期 branch。历史版本通过不可移动的 Git tag 查询。
 - `payloads/manifest.json` 只管理 SDK、固件、兼容关系及 `catalog_version`，不再重复记录软件版本。资源更新与软件版本可以独立演进。
 
