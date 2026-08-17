@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastumi_tools import __version__
 from fastumi_tools.catalog import Catalog, CatalogError, sha256_file
 
 
@@ -15,7 +16,6 @@ class CatalogTests(unittest.TestCase):
         artifact.write_bytes(b"sample-sdk")
         manifest = {
             "schema_version": 1,
-            "project_version": "0.1.1",
             "catalog_version": "test",
             "sdk": [{
                 "id": "sample-focal", "path": "sdk/sample.deb",
@@ -53,6 +53,11 @@ class CatalogTests(unittest.TestCase):
         catalog.os_release["VERSION_CODENAME"] = "jammy"
         self.assertFalse(catalog.public()["host_supported"])
         self.assertFalse(catalog.items("sdk")[0]["compatible"])
+
+    def test_public_project_version_comes_from_application(self):
+        temporary, catalog = self.make_catalog()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(catalog.public()["project_version"], __version__)
 
     def test_path_escape_is_rejected(self):
         temporary, catalog = self.make_catalog()

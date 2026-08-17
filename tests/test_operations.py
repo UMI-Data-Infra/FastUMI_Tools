@@ -12,7 +12,7 @@ class OperationValidationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         root = Path(self.temporary.name)
         manifest = {
-            "schema_version": 1, "project_version": "test", "catalog_version": "test",
+            "schema_version": 1, "catalog_version": "test",
             "sdk": [], "firmware": [],
         }
         (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
