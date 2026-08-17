@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "project_version": "0.1.0",
+  "catalog_version": "2026.08.17",
+  "sdk": [
+    {
+      "id": "xvsdk-20260430-focal",
+      "release": "20260430",
+      "label": "2026-04-30",
+      "channel": "stable",
+      "recommended": false,
+      "os_codenames": ["focal"],
+      "package_version": "3.2.0",
+      "path": "sdk/20260430/XVSDK_focal_amd64_0430.deb",
+      "sha256": "3c0dfe8b7fd2828041a00b1586afb3f1c038dc0580d33df011b149e13120a7cb",
+      "notes": "适配新 PMD ToF 设备，修复 PMD ToF 反复开关问题。"
+    },
+    {
+      "id": "xvsdk-20260430-jammy",
+      "release": "20260430",
+      "label": "2026-04-30",
+      "channel": "stable",
+      "recommended": false,
+      "os_codenames": ["jammy"],
+      "package_version": "3.2.0",
+      "path": "sdk/20260430/XVSDK_jammy_amd64_0430.deb",
+      "sha256": "2e4092a02fcfdc9d995480155862a75d863c77667df8884c4575182858810a11",
+      "notes": "适配新 PMD ToF 设备，修复 PMD ToF 反复开关问题。"
+    },
+    {
+      "id": "xvsdk-20260522-focal",
+      "release": "20260522",
+      "label": "2026-05-22",
+      "channel": "stable",
+      "recommended": true,
+      "os_codenames": ["focal"],
+      "package_version": "3.2.0",
+      "path": "sdk/20260522/XVSDK_focal_amd64_0522.deb",
+      "sha256": "23c3230196cc76bd03e9ea537831cd61a29b060a620dcfb530c709875a96e91d",
+      "notes": "正式版：更新 ToF 库，修复多设备数据流，增加相机外参 Topic 与 SEUCM 标定参数。"
+    },
+    {
+      "id": "xvsdk-20260522-jammy",
+      "release": "20260522",
+      "label": "2026-05-22",
+      "channel": "stable",
+      "recommended": true,
+      "os_codenames": ["jammy"],
+      "package_version": "3.2.0",
+      "path": "sdk/20260522/XVSDK_jammy_amd64_0522.deb",
+      "sha256": "678f08a47e0a0f04a4bdf6fe38633527ab737c52e8b872af63cf150a0a138df0",
+      "notes": "正式版：更新 ToF 库，修复多设备数据流，增加相机外参 Topic 与 SEUCM 标定参数。"
+    }
+  ],
+  "firmware": [
+    {
+      "id": "firmware-pmdtof-20260430",
+      "release": "20260430",
+      "label": "2026-04-30",
+      "channel": "stable",
+      "recommended": false,
+      "camera_family": "PMD-TOF",
+      "minimum_sdk_release": "20260430",
+      "path": "firmware/firmware-20260430.zip",
+      "sha256": "6e86b41a9b229a59bbf708942bfc65a381ad33ca9825d54da68993230715b3ee",
+      "notes": "PMD-TOF 标准版相机正式固件，可用于回退。"
+    },
+    {
+      "id": "firmware-pmdtof-20260514",
+      "release": "20260514",
+      "label": "2026-05-14",
+      "channel": "stable",
+      "recommended": true,
+      "camera_family": "PMD-TOF",
+      "minimum_sdk_release": "20260522",
+      "path": "firmware/firmware-20260514.zip",
+      "sha256": "ad687036af887255c7b87b62e677b4c3e7fd42149ee8c378ea102cf2e1d6b02d",
+      "notes": "优化 ToF，建议配合 2026-05-22 SDK 正式版使用。"
+    }
+  ]
+}
