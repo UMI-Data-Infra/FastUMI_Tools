@@ -70,11 +70,11 @@
           <div class="sub-action"><div><strong>ROS1 Wrapper</strong><small data-i18n="resources.rosCopy">检测到 ROS Noetic 后，可将当前 SDK 的 wrapper 编译到登录用户的 catkin_ws。</small></div><button id="install-ros" class="button secondary" data-i18n="resources.installRos">安装 / 重建</button></div>
         </article>
         <article class="panel resource-panel">
-          <div class="panel-head"><div><span class="panel-index">02</span><div><h3 data-i18n="resources.firmware">相机固件</h3><p data-i18n="resources.firmwareCopy">只展示受管的正式固件；刷新前执行严格安全检查。</p></div></div><div class="danger-chip" data-i18n="resources.risk">高风险操作</div></div>
+          <div class="panel-head"><div><span class="panel-index">02</span><div><h3 data-i18n="resources.firmware">相机固件</h3><p data-i18n="resources.firmwareCopy">写入前验证 USB 3.x、真实 SDK、进程释放和 HID；写入后读取相机真实版本验真。</p></div></div><div class="danger-chip" data-i18n="resources.risk">高风险操作</div></div>
           <div id="firmware-options" class="version-options"><div class="skeleton-block"></div></div>
           <div class="firmware-target"><label><span data-i18n="resources.target">目标相机</span><select id="firmware-device"><option value="">—</option></select></label><div id="firmware-compat" class="compat-line"><span class="compat-dot"></span><span>—</span></div></div>
-          <label class="safety-check"><input id="firmware-ack" type="checkbox"><span><strong data-i18n="resources.ack">我已确认刷新期间不会拔线、断电或启动采集任务</strong><small data-i18n="resources.ackCopy">刷新时只能连接一台 FastUMI 相机，且相机不能被 ROS 或其他程序占用。</small></span></label>
-          <div class="action-row"><div class="action-note warning"><span>!</span><p data-i18n="resources.flashNote">软件不会自动结束正在采集数据的进程；检测到占用时会阻止刷新。</p></div><button id="flash-firmware" class="button danger" disabled data-i18n="resources.flash">刷新所选固件</button></div>
+          <label class="safety-check"><input id="firmware-ack" type="checkbox"><span><strong data-i18n="resources.ack">我已确认刷新期间不会拔线、断电或启动采集任务</strong><small data-i18n="resources.ackCopy">刷新时只能连接一台 FastUMI 相机；受管 ROS 会自动停止，其他占用会阻止刷新。</small></span></label>
+          <div class="action-row"><div class="action-note warning"><span>!</span><p data-i18n="resources.flashNote">每个 DFU 阶段都必须出现下载完成证据；真实版本不匹配时绝不会记录为成功。</p></div><div class="firmware-actions"><button id="preflight-firmware" class="button secondary" disabled data-i18n="resources.preflight">仅检查刷新条件</button><button id="flash-firmware" class="button danger" disabled data-i18n="resources.flash">检查条件并刷新固件</button></div></div>
         </article>
       </section>
 

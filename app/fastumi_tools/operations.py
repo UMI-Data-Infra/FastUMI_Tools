@@ -22,7 +22,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from .catalog import Catalog, CatalogError
-from .system_info import APP_ROOT, SERIAL_PATTERN, get_usb_devices, sdk_information, usb_devices_in_use
+from .system_info import (
+    APP_ROOT,
+    SERIAL_PATTERN,
+    get_usb_devices,
+    sdk_information,
+    sdk_probe_path,
+    usb_devices_in_use,
+)
 
 
 STATE_DIR = Path(os.environ.get("FASTUMI_STATE_DIR", "/var/lib/fastumi-tools"))
@@ -32,6 +39,8 @@ GENERATED_DIR = STATE_DIR / "generated"
 GUI_LOG_DIR = STATE_DIR / "gui"
 RUNTIME_DIR = STATE_DIR / "runtime"
 ROS_DRIVER_UNIT = "fastumi-ros-driver.service"
+NORMAL_USB_PRODUCT_ID = "f408"
+DFU_USB_PRODUCT_ID = "f003"
 ROS_LOCAL_ENV = (
     "export ROS_MASTER_URI=http://127.0.0.1:11311; "
     "export ROS_IP=127.0.0.1; unset ROS_HOSTNAME; "
@@ -177,15 +186,99 @@ def desktop_environment(account: pwd.struct_passwd, proc_root: Path = Path("/pro
 
 def firmware_update_error(output: str) -> Optional[str]:
     lowered = output.lower()
-    markers = (
+    hid_markers = (
         "don't found any xvisio",
         "not found any xvisio",
         "no xvisio hid device",
         "please check if you has plun",
+        "did not find usb device",
+        "can not find usb device",
+        "device found but the connection failed",
     )
-    if any(marker in lowered for marker in markers):
-        return "固件更新器没有找到 XVisio HID 设备；未写入固件。"
+    if any(marker in lowered for marker in hid_markers):
+        return "hid_not_found"
+    if "request pre-mode fail" in lowered or "request switch-mode fail" in lowered:
+        return "mode_switch_failed"
+    if "timeout error" in lowered:
+        return "mode_switch_timeout"
+    dfu_markers = (
+        "no dfu capable usb device available",
+        "cannot open dfu device",
+        "error during download",
+        "error resetting after download",
+        "download failed",
+    )
+    if any(marker in lowered for marker in dfu_markers):
+        return "dfu_failed"
     return None
+
+
+def firmware_update_succeeded(output: str) -> bool:
+    """Require positive DFU evidence because the vendor helper returns 0 on failure."""
+    lowered = output.lower()
+    if firmware_update_error(output):
+        return False
+    completed = (
+        "file downloaded successfully" in lowered
+        or "download done" in lowered
+    )
+    return completed
+
+
+def firmware_version_from_probe(output: str, serial: str) -> Optional[str]:
+    begin = "XVISION_PROBE_JSON_BEGIN"
+    end = "XVISION_PROBE_JSON_END"
+    start = output.rfind(begin)
+    finish = output.rfind(end)
+    if start < 0 or finish <= start:
+        return None
+    try:
+        value = json.loads(output[start + len(begin):finish].strip())
+    except json.JSONDecodeError:
+        return None
+    for device in value.get("devices", []) if isinstance(value, dict) else []:
+        if not isinstance(device, dict) or str(device.get("serial", "")) != serial:
+            continue
+        info = device.get("info") if isinstance(device.get("info"), dict) else {}
+        for key, raw in info.items():
+            normalized = str(key).lower().replace("-", "_").replace(" ", "_")
+            if "firmware" in normalized or normalized in ("version", "device_version"):
+                version = str(raw).strip()
+                if version:
+                    return version
+    return None
+
+
+def usb_hid_interfaces(usb_path: str, usb_root: Path = Path("/sys/bus/usb/devices")) -> List[Path]:
+    result: List[Path] = []
+    for interface in usb_root.glob("%s:*" % usb_path):
+        try:
+            interface_class = (interface / "bInterfaceClass").read_text(encoding="ascii").strip().lower()
+        except OSError:
+            continue
+        if interface_class == "03":
+            result.append(interface)
+    return sorted(result)
+
+
+def hidraw_nodes_for_usb(
+    usb_path: str,
+    sys_root: Path = Path("/sys"),
+    dev_root: Path = Path("/dev"),
+) -> List[Path]:
+    usb_device = (sys_root / "bus" / "usb" / "devices" / usb_path).resolve()
+    result: List[Path] = []
+    for entry in (sys_root / "class" / "hidraw").glob("hidraw*"):
+        try:
+            device = (entry / "device").resolve(strict=True)
+        except OSError:
+            continue
+        if usb_device != device and usb_device not in device.parents:
+            continue
+        node = dev_root / entry.name
+        if node.exists():
+            result.append(node)
+    return sorted(result)
 
 
 class OperationManager:
@@ -218,6 +311,7 @@ class OperationManager:
     def start(self, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         handlers = {
             "sdk-install": self.install_sdk,
+            "firmware-preflight": self.preflight_firmware,
             "firmware-flash": self.flash_firmware,
             "topic-check": self.check_topic,
             "rviz-launch": self.launch_rviz,
@@ -377,11 +471,236 @@ class OperationManager:
         save_state(state)
         self.log(self.tr("SDK %s 安装完成。", "SDK %s installation completed.") % item["label"])
 
-    def flash_firmware(self, payload: Dict[str, Any]) -> None:
+    def require_firmware_sdk(self, minimum: Optional[str]) -> None:
+        if not minimum:
+            return
+        sdk = sdk_information()
+        managed = str(sdk.get("managed_release") or "")
+        runtime = str(sdk.get("runtime_version") or "")
+        runtime_releases = re.findall(r"20[0-9]{6}", runtime)
+        runtime_release = max(runtime_releases) if runtime_releases else ""
+        if managed >= str(minimum) and runtime_release >= str(minimum):
+            self.log(self.tr(
+                "SDK 检查通过：受管版本 %s，运行时 %s。",
+                "SDK check passed: managed release %s, runtime %s.",
+            ) % (managed, runtime))
+            return
+        raise OperationError(self.tr(
+            "固件要求 SDK %s 或更新版本；当前受管版本为 %s，实际运行时为 %s。请先安装推荐 SDK。",
+            "This firmware requires SDK %s or newer; managed release is %s and the actual runtime is %s. Install the recommended SDK first.",
+        ) % (minimum, managed or self.tr("未知", "unknown"), runtime or self.tr("未检测到", "not detected")))
+
+    def firmware_error_message(self, code: str) -> str:
+        messages = {
+            "hid_not_found": self.tr(
+                "固件更新器没有找到 XVisio HID 设备；没有写入任何内容。",
+                "The firmware updater could not find the XVisio HID device; nothing was written.",
+            ),
+            "mode_switch_failed": self.tr(
+                "相机无法从普通模式切换到 DFU 模式；已停止刷新。",
+                "The camera could not switch from normal mode to DFU mode; flashing was stopped.",
+            ),
+            "mode_switch_timeout": self.tr(
+                "等待相机进入 DFU 模式超时；已停止刷新。",
+                "Timed out waiting for the camera to enter DFU mode; flashing was stopped.",
+            ),
+            "dfu_failed": self.tr(
+                "DFU 下载失败；固件未通过完整性确认。",
+                "The DFU download failed; firmware integrity was not confirmed.",
+            ),
+        }
+        return messages.get(code, self.tr("固件更新器报告未知错误。", "The firmware updater reported an unknown error."))
+
+    def validate_firmware_phase(self, output: str, phase: str) -> None:
+        failure = firmware_update_error(output)
+        if failure:
+            raise OperationError(self.firmware_error_message(failure))
+        if not firmware_update_succeeded(output):
+            raise OperationError(self.tr(
+                "%s 阶段没有出现“DFU 下载完成”的正向证据；为避免假成功，任务已判定失败。",
+                "%s did not produce positive DFU download-completion evidence. The task is marked failed to prevent a false success.",
+            ) % phase)
+        self.log(self.tr("%s 阶段已确认 DFU 下载完成。", "%s DFU download verified.") % phase)
+
+    def stop_sources_for_firmware(self) -> None:
+        if self.ros_driver_active():
+            self.run(["systemctl", "stop", ROS_DRIVER_UNIT], timeout=30)
+            self.log(self.tr(
+                "已自动停止受管 ROS 数据源并释放相机。",
+                "The managed ROS data source was stopped to release the camera.",
+            ))
+            time.sleep(1)
+        if any(topic.startswith("/xv_sdk/") and topic.count("/") > 2 for topic in self.ros_topic_list()):
+            raise OperationError(self.tr(
+                "检测到非 FastUMI Tools 启动的 XVSDK ROS 节点，请先在原终端停止它。",
+                "An XVSDK ROS node not managed by FastUMI Tools is running. Stop it in its original terminal first.",
+            ))
+
+    def wait_for_released_firmware_device(self, serial: str, timeout: float = 12) -> Dict[str, Any]:
+        deadline = time.monotonic() + timeout
+        last_owners: List[Dict[str, Any]] = []
+        while time.monotonic() < deadline:
+            devices = usb_devices_in_use(get_usb_devices())
+            if len(devices) == 1 and str(devices[0].get("serial", "")) == serial:
+                last_owners = devices[0].get("in_use_by") or []
+                if not last_owners:
+                    return devices[0]
+            time.sleep(0.25)
+        if last_owners:
+            detail = ", ".join("%s(%s)" % (item["command"], item["pid"]) for item in last_owners)
+            raise OperationError(self.tr(
+                "相机仍被进程占用：%s。请关闭实时预览、标定或其他采集程序。",
+                "The camera is still in use by %s. Close live preview, calibration, or other acquisition programs.",
+            ) % detail)
+        raise OperationError(self.tr(
+            "释放数据源后没有重新检测到目标相机。",
+            "The target camera was not detected after releasing data sources.",
+        ))
+
+    def bind_firmware_hid(self, device: Dict[str, Any]) -> Path:
+        if str(device.get("usb_product_id", "")).lower() != NORMAL_USB_PRODUCT_ID:
+            raise OperationError(self.tr(
+                "相机不在普通 HID 模式（期望 040e:%s）。",
+                "The camera is not in normal HID mode (expected 040e:%s).",
+            ) % NORMAL_USB_PRODUCT_ID)
+        usb_path = str(device.get("usb_path", ""))
+        interfaces = usb_hid_interfaces(usb_path)
+        if not interfaces:
+            raise OperationError(self.tr(
+                "相机 USB 描述符中没有 HID 接口，不能安全开始刷新。",
+                "The camera USB descriptor has no HID interface, so flashing cannot start safely.",
+            ))
+
+        nodes = hidraw_nodes_for_usb(usb_path)
+        if not nodes:
+            usbhid = Path("/sys/bus/usb/drivers/usbhid")
+            if not usbhid.is_dir():
+                self.run(["modprobe", "usbhid"], timeout=15)
+            bind = usbhid / "bind"
+            if not bind.exists():
+                raise OperationError(self.tr(
+                    "系统没有可用的 usbhid 绑定入口。",
+                    "The system does not expose a usable usbhid bind endpoint.",
+                ))
+            for interface in interfaces:
+                driver = interface / "driver"
+                if driver.is_symlink() and driver.resolve().name != "usbhid":
+                    unbind = driver.resolve() / "unbind"
+                    try:
+                        unbind.write_text(interface.name, encoding="ascii")
+                    except OSError as exc:
+                        raise OperationError(self.tr(
+                            "无法释放 HID 接口 %s：%s",
+                            "Unable to release HID interface %s: %s",
+                        ) % (interface.name, exc)) from exc
+                if not driver.is_symlink():
+                    try:
+                        bind.write_text(interface.name, encoding="ascii")
+                    except OSError as exc:
+                        raise OperationError(self.tr(
+                            "无法绑定 HID 接口 %s：%s",
+                            "Unable to bind HID interface %s: %s",
+                        ) % (interface.name, exc)) from exc
+            subprocess.run(["udevadm", "settle"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            deadline = time.monotonic() + 6
+            while time.monotonic() < deadline:
+                nodes = hidraw_nodes_for_usb(usb_path)
+                if nodes:
+                    break
+                time.sleep(0.2)
+        if not nodes:
+            raise OperationError(self.tr(
+                "HID 接口存在，但系统没有创建对应的 /dev/hidraw*；刷新尚未开始。",
+                "The HID interface exists, but no matching /dev/hidraw* node was created; flashing has not started.",
+            ))
+        node = nodes[0]
+        try:
+            descriptor = os.open(str(node), os.O_RDWR | os.O_NONBLOCK)
+            os.close(descriptor)
+        except OSError as exc:
+            raise OperationError(self.tr(
+                "无法读写相机 HID 设备 %s：%s",
+                "Cannot read and write camera HID device %s: %s",
+            ) % (node, exc)) from exc
+        self.log(self.tr(
+            "HID 前置检查通过：%s（040e:%s）。",
+            "HID preflight passed: %s (040e:%s).",
+        ) % (node, NORMAL_USB_PRODUCT_ID))
+        return node
+
+    def ensure_next_firmware_stage_ready(self, serial: str, timeout: float = 35) -> Dict[str, Any]:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            devices = get_usb_devices()
+            if len(devices) == 1:
+                device = devices[0]
+                product = str(device.get("usb_product_id", "")).lower()
+                if product == DFU_USB_PRODUCT_ID:
+                    try:
+                        probe = subprocess.run(
+                            ["dfu-util", "-l"], text=True, capture_output=True,
+                            timeout=5, check=False,
+                        )
+                        listing = "%s\n%s" % (probe.stdout, probe.stderr)
+                    except (OSError, subprocess.TimeoutExpired):
+                        listing = ""
+                    if "040e:%s" % DFU_USB_PRODUCT_ID in listing.lower():
+                        self.log(self.tr("相机 DFU 模式已确认。", "Camera DFU mode verified."))
+                        return device
+                if product == NORMAL_USB_PRODUCT_ID and str(device.get("serial", "")) == serial:
+                    self.bind_firmware_hid(device)
+                    return device
+            time.sleep(0.5)
+        raise OperationError(self.tr(
+            "写入 USB Loader 后，相机没有以普通模式或 DFU 模式重新枚举。",
+            "After writing the USB Loader, the camera did not re-enumerate in normal or DFU mode.",
+        ))
+
+    def wait_for_normal_firmware_device(self, serial: str, timeout: float = 75) -> Dict[str, Any]:
+        self.log(self.tr("等待相机完成重启并重新枚举……", "Waiting for the camera to reboot and re-enumerate…"))
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            devices = get_usb_devices()
+            if len(devices) == 1:
+                device = devices[0]
+                if (
+                    str(device.get("usb_product_id", "")).lower() == NORMAL_USB_PRODUCT_ID
+                    and str(device.get("serial", "")) == serial
+                ):
+                    time.sleep(2)
+                    return device
+            time.sleep(0.5)
+        raise OperationError(self.tr(
+            "主固件下载完成，但相机没有在 75 秒内恢复普通模式；请重新插拔后检查，任务不会记为成功。",
+            "The main firmware downloaded, but the camera did not return to normal mode within 75 seconds. Reconnect and inspect it; the task will not be recorded as successful.",
+        ))
+
+    def probe_firmware_version(self, serial: str) -> str:
+        probe = sdk_probe_path()
+        if not probe:
+            raise OperationError(self.tr(
+                "缺少 SDK 设备版本探测器，不能完成写后验真。",
+                "The SDK device-version probe is missing, so post-flash verification cannot complete.",
+            ))
+        output = self.run([str(probe), "--devices"], timeout=45)
+        version = firmware_version_from_probe(output, serial)
+        if not version:
+            raise OperationError(self.tr(
+                "SDK 没有返回目标相机的真实固件版本；任务不会记为成功。",
+                "The SDK did not return the target camera's actual firmware version; the task will not be recorded as successful.",
+            ))
+        self.log(self.tr("相机实际报告固件：%s。", "Camera-reported firmware: %s.") % version)
+        return version
+
+    def prepare_firmware_flash(
+        self,
+        payload: Dict[str, Any],
+        require_acknowledgement: bool,
+    ) -> tuple:
         self.require_root()
         artifact_id = str(payload.get("artifact_id", ""))
         item, archive = self.catalog.resolve("firmware", artifact_id)
-        if payload.get("acknowledged") is not True:
+        if require_acknowledgement and payload.get("acknowledged") is not True:
             raise OperationError(self.tr("请确认刷新期间不会拔线或断电。", "Confirm that USB and power will remain connected during the flash."))
         devices = usb_devices_in_use(get_usb_devices())
         if len(devices) != 1:
@@ -390,24 +709,47 @@ class OperationManager:
         serial = str(device.get("serial", ""))
         if str(payload.get("serial_confirmation", "")) != serial:
             raise OperationError(self.tr("相机序列号确认不匹配。", "The camera serial number confirmation does not match."))
-        owners = device.get("in_use_by") or []
-        if owners:
-            detail = "、".join("%s(%s)" % (entry["command"], entry["pid"]) for entry in owners)
-            raise OperationError(self.tr("相机正在被进程占用：%s。请先停止采集或 ROS 节点。", "The camera is in use by %s. Stop acquisition or ROS first.") % detail)
-        if device.get("usb_generation") == "USB 2.0":
-            raise OperationError(self.tr("相机当前工作在 USB 2.0，请连接 USB 3.x 接口后再刷新。", "The camera is using USB 2.0. Connect it to USB 3.x before flashing."))
-        current = load_state().get("sdk_release")
+        product = str(device.get("usb_product_id", "")).lower()
+        if product != NORMAL_USB_PRODUCT_ID:
+            raise OperationError(self.tr(
+                "目标相机 USB ID 为 040e:%s，刷新必须从普通模式 040e:%s 开始。",
+                "The target camera USB ID is 040e:%s; flashing must start in normal mode 040e:%s.",
+            ) % (product or "????", NORMAL_USB_PRODUCT_ID))
+        if device.get("usb_generation") != "USB 3.x":
+            raise OperationError(self.tr(
+                "无法确认相机工作在 USB 3.x，请更换到 USB 3.x 接口后再刷新。",
+                "The camera could not be verified on USB 3.x. Move it to a USB 3.x port before flashing.",
+            ))
         minimum = item.get("minimum_sdk_release")
-        if minimum and (not current or str(current) < str(minimum)):
-            detected = sdk_information().get("runtime_version") or "未记录"
-            raise OperationError(
-                "该固件要求 SDK %s 或更新版本；当前受管版本为 %s（运行时 %s）。请先安装推荐 SDK。"
-                % (minimum, current or "未知", detected)
-            )
-        self.log(self.tr("安全检查通过，相机 %s，目标固件 %s。", "Safety checks passed for camera %s and firmware %s.") % (serial, item["label"]))
+        self.require_firmware_sdk(str(minimum) if minimum else None)
+        self.stop_sources_for_firmware()
+        device = self.wait_for_released_firmware_device(serial)
         self.install_rule()
         if not shutil.which("dfu-util"):
             self.run(["apt-get", "install", "-y", "dfu-util"], timeout=900)
+        self.bind_firmware_hid(device)
+        self.log(self.tr(
+            "全部写前检查通过：唯一相机 %s、USB 3.x、SDK、进程释放和 HID 均已确认。",
+            "All pre-write checks passed: single camera %s, USB 3.x, SDK, process release, and HID are verified.",
+        ) % serial)
+        return item, archive, device, serial
+
+    def preflight_firmware(self, payload: Dict[str, Any]) -> None:
+        item, _, _, serial = self.prepare_firmware_flash(payload, require_acknowledgement=False)
+        self.log(self.tr(
+            "固件 %s 的非写入预检通过；相机 %s 尚未写入任何内容。",
+            "Non-writing preflight passed for firmware %s and camera %s; nothing was written.",
+        ) % (item["label"], serial))
+        try:
+            self.restore_uvc()
+        except OperationError as exc:
+            self.log(self.tr(
+                "预检通过，但 UVC 自动恢复失败：%s",
+                "Preflight passed, but automatic UVC restore failed: %s",
+            ) % exc)
+
+    def flash_firmware(self, payload: Dict[str, Any]) -> None:
+        item, archive, _, serial = self.prepare_firmware_flash(payload, require_acknowledgement=True)
         with tempfile.TemporaryDirectory(prefix="fastumi-firmware-") as temporary:
             root = Path(temporary)
             with zipfile.ZipFile(str(archive)) as bundle:
@@ -423,22 +765,44 @@ class OperationManager:
             framework = next(root.rglob("framework.img"), None)
             if not updater or not loader or not framework:
                 raise OperationError(self.tr("固件包不完整。", "The firmware archive is incomplete."))
+            if str(item["release"]).encode("ascii") not in framework.read_bytes():
+                raise OperationError(self.tr(
+                    "主固件镜像不包含目标版本 %s，已在写入前停止。",
+                    "The main firmware image does not contain target release %s; stopped before writing.",
+                ) % item["release"])
             updater.chmod(0o755)
             self.log(self.tr("开始写入 USB Loader，请勿拔线或断电。", "Writing the USB Loader. Do not disconnect USB or power."))
             loader_output = self.run([str(updater), str(loader)], timeout=180)
-            failure = firmware_update_error(loader_output)
-            if failure:
-                raise OperationError(failure)
+            self.validate_firmware_phase(loader_output, self.tr("USB Loader", "USB Loader"))
+            self.ensure_next_firmware_stage_ready(serial)
             self.log(self.tr("开始写入主固件，请勿拔线或断电。", "Writing the main firmware. Do not disconnect USB or power."))
             framework_output = self.run([str(updater), str(framework)], timeout=300)
-            failure = firmware_update_error(framework_output)
-            if failure:
-                raise OperationError(failure)
+            self.validate_firmware_phase(framework_output, self.tr("主固件", "Main firmware"))
+        self.wait_for_normal_firmware_device(serial)
+        actual_version = self.probe_firmware_version(serial)
+        if str(item["release"]) not in actual_version:
+            raise OperationError(self.tr(
+                "写后验真失败：目标版本为 %s，相机实际报告 %s；任务不会记为成功。",
+                "Post-flash verification failed: target is %s but the camera reports %s; the task will not be recorded as successful.",
+            ) % (item["release"], actual_version))
         state = load_state()
         firmware = state.setdefault("firmware", {})
-        firmware[serial] = {"release": item["release"], "artifact": item["id"], "flashed_at": now_iso()}
+        firmware[serial] = {
+            "release": item["release"], "artifact": item["id"],
+            "actual_version": actual_version, "flashed_at": now_iso(), "verified_at": now_iso(),
+        }
         save_state(state)
-        self.log(self.tr("固件 %s 刷新完成，请重新插拔相机后复查版本。", "Firmware %s was flashed. Reconnect the camera and verify its version.") % item["label"])
+        self.log(self.tr(
+            "固件 %s 刷新并验真成功；只有此时才更新成功记录。",
+            "Firmware %s was flashed and verified; the success record is updated only now.",
+        ) % item["label"])
+        try:
+            self.restore_uvc()
+        except OperationError as exc:
+            self.log(self.tr(
+                "固件已验真，但 UVC 自动恢复失败：%s",
+                "Firmware is verified, but automatic UVC restore failed: %s",
+            ) % exc)
 
     def validated_serial(self, payload: Dict[str, Any]) -> str:
         serial = str(payload.get("serial", ""))

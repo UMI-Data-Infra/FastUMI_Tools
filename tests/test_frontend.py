@@ -24,6 +24,14 @@ class FrontendTests(unittest.TestCase):
         self.assertIn('id="theme-toggle"', html)
         self.assertIn('src="/kuaimi-mark.svg"', html)
 
+    def test_firmware_preflight_is_separate_from_flash(self):
+        html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
+        javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        self.assertIn('id="preflight-firmware"', html)
+        self.assertIn('id="flash-firmware"', html)
+        self.assertIn('startOperation("firmware-preflight"', javascript)
+        self.assertIn('startOperation("firmware-flash"', javascript)
+
     def test_obsolete_visual_pose_is_not_exposed(self):
         html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
         self.assertNotIn("slam/visual_pose", html)
