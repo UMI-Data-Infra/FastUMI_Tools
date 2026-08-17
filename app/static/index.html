@@ -69,10 +69,10 @@
       </section>
 
       <section id="view-resources" class="view">
-        <div class="page-intro"><div><span>VERSION CONTROL</span><h2>软件与固件</h2><p>版本由 FastUMI 资源清单统一管理，安装前自动校验系统、兼容性和文件完整性。</p></div><div class="catalog-chip">资源包 <strong id="catalog-version">—</strong></div></div>
+        <div class="page-intro"><div><span>VERSION CONTROL</span><h2>软件与固件</h2><p>仅支持 Ubuntu 20.04（Focal）；安装前自动校验系统、兼容性和文件完整性。</p></div><div class="catalog-chip">资源包 <strong id="catalog-version">—</strong></div></div>
 
         <article class="panel resource-panel">
-          <div class="panel-head"><div><span class="panel-index">01</span><div><h3>XVSDK 管理</h3><p>自动选择与当前 Ubuntu 版本匹配的安装包。</p></div></div><div id="current-sdk-chip" class="current-chip">当前：检测中</div></div>
+          <div class="panel-head"><div><span class="panel-index">01</span><div><h3>XVSDK 管理</h3><p>提供 Ubuntu 20.04（Focal）专用安装包。</p></div></div><div id="current-sdk-chip" class="current-chip">当前：检测中</div></div>
           <div id="sdk-options" class="version-options"><div class="skeleton-block"></div></div>
           <div class="action-row"><div class="action-note"><span>i</span><p>SDK 安装会更新系统库与 USB 权限规则，不会自动重启电脑。</p></div><button id="install-sdk" class="button primary" disabled>安装所选 SDK</button></div>
           <div class="sub-action"><div><strong>ROS1 Wrapper</strong><small>检测到 ROS Noetic 后，可将当前 SDK 的 wrapper 编译到登录用户的 catkin_ws。</small></div><button id="install-ros" class="button secondary">安装 / 重建</button></div>
