@@ -2,12 +2,14 @@
 
 FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先分散在版本检测、`FastUMI_SDK`、`FastUMI_Monitor` 和 `FastUMI_Camera` 中的常用能力集中到一个简洁的 Web 界面中。
 
-当前项目版本：**0.1.0**
+当前项目版本：**0.1.1**
+
+> 系统要求：仅支持 **Ubuntu 20.04 LTS（Focal）amd64**，不支持 Ubuntu 22.04（Jammy）。软件会在不受支持的系统上阻止 SDK 安装和固件刷新。
 
 ## 功能
 
 - 自动检测 FastUMI / XVisio USB 相机、序列号、USB 2.0/3.x、固件和 SDK 版本。
-- 在 Web 界面选择并安装 2026-04-30 或 2026-05-22 XVSDK，自动匹配 Ubuntu Focal/Jammy。
+- 在 Web 界面选择并安装 2026-04-30 或 2026-05-22 XVSDK，仅提供 Ubuntu 20.04 Focal 版本。
 - 选择并刷新 2026-04-30 或 2026-05-14 PMD-TOF 固件。
 - 固件刷新前检查单设备、USB 连接、进程占用、SDK 最低版本和资源 SHA-256。
 - ROS1 设备发现、Topic 频率检测、ROS1 wrapper 安装和 RViz 可视化。
@@ -30,8 +32,8 @@ http://127.0.0.1:8765
 
 | 类型 | 版本 | 系统/设备 | 状态 |
 | --- | --- | --- | --- |
-| XVSDK | 2026-04-30 | Ubuntu 20.04 Focal / 22.04 Jammy | 稳定版，可回退 |
-| XVSDK | 2026-05-22 | Ubuntu 20.04 Focal / 22.04 Jammy | 正式推荐版 |
+| XVSDK | 2026-04-30 | Ubuntu 20.04 Focal | 稳定版，可回退 |
+| XVSDK | 2026-05-22 | Ubuntu 20.04 Focal | 正式推荐版 |
 | 固件 | 2026-04-30 | PMD-TOF 标准版相机 | 稳定版，可回退 |
 | 固件 | 2026-05-14 | PMD-TOF 标准版相机 | 推荐版，搭配 2026-05-22 SDK |
 
@@ -70,7 +72,7 @@ python3 -m fastumi_tools.server --port 8765
 输出：
 
 ```text
-dist/fastumi-tools_0.1.0_amd64.deb
+dist/fastumi-tools_0.1.1_amd64.deb
 ```
 
 构建包含全部 SDK 和固件的离线包：
@@ -117,4 +119,4 @@ tests/                       单元与资源完整性测试
 - FastUMI Camera：V4L2 预览与厂商 RGB 标定程序。
 - Xvision Version Installer：SDK、固件与 USB 自动诊断逻辑。
 
-大型二进制资源当前随仓库提供，后续版本建议发布到 GitHub Releases 或内部对象存储，并继续由同一份 manifest 管理。
+大型 SDK、固件和完整离线包通过 GitHub Releases 与百度云盘镜像发布，源码仓库保留版本清单和校验信息，并继续由同一份 manifest 管理。
