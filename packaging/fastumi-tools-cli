@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+export PYTHONPATH=/opt/fastumi-tools/app
+exec /usr/bin/python3 -m fastumi_tools.server "$@"
