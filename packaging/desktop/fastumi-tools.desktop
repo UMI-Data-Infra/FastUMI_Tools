@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=FastUMI Tools
+Name[zh_CN]=FastUMI Tools
+Comment=FastUMI device, SDK, firmware and ROS management console
+Comment[zh_CN]=FastUMI 设备、SDK、固件与 ROS 管理控制台
+Exec=fastumi-tools-open
+Icon=fastumi-tools
+Terminal=false
+Categories=Development;Utility;System;
+StartupNotify=true
