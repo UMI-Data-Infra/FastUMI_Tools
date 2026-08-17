@@ -15,7 +15,7 @@ class CatalogTests(unittest.TestCase):
         artifact.write_bytes(b"sample-sdk")
         manifest = {
             "schema_version": 1,
-            "project_version": "0.1.0",
+            "project_version": "0.1.1",
             "catalog_version": "test",
             "sdk": [{
                 "id": "sample-focal", "path": "sdk/sample.deb",
@@ -46,6 +46,13 @@ class CatalogTests(unittest.TestCase):
         catalog.os_release["VERSION_CODENAME"] = "jammy"
         with self.assertRaises(CatalogError):
             catalog.resolve("sdk", "sample-focal")
+
+    def test_unsupported_host_disables_catalog(self):
+        temporary, catalog = self.make_catalog()
+        self.addCleanup(temporary.cleanup)
+        catalog.os_release["VERSION_CODENAME"] = "jammy"
+        self.assertFalse(catalog.public()["host_supported"])
+        self.assertFalse(catalog.items("sdk")[0]["compatible"])
 
     def test_path_escape_is_rejected(self):
         temporary, catalog = self.make_catalog()
