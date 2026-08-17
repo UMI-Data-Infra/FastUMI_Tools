@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+install -d -m 0755 /var/lib/fastumi-tools /var/lib/fastumi-tools/payloads
+systemctl daemon-reload >/dev/null 2>&1 || true
+
+# FastUMI Tools supersedes the read-only xvision-version-web service and uses
+# the same local port by default. Keep its files for rollback, but stop it.
+if systemctl list-unit-files xvision-version-web.service >/dev/null 2>&1; then
+  systemctl disable --now xvision-version-web.service >/dev/null 2>&1 || true
+fi
+
+systemctl enable --now fastumi-tools.service >/dev/null 2>&1 || true
+exit 0
