@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.log
+.cache/
+.pytest_cache/
+dist/*
+!dist/.gitkeep
+app/bin/
+generated/
+*.tmp
+*.bak
+.DS_Store

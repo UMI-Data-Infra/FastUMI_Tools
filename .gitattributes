@@ -1,0 +1,4 @@
+*.deb binary -diff
+*.zip binary -diff
+assets/calibration/demo-api binary -diff
+assets/calibration/pipe_srv binary -diff
