@@ -136,19 +136,31 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: true
-    - Class: rviz/MarkerArray
+    - Class: rviz/Path
       Enabled: true
-      Marker Topic: /xv_sdk/${XV_DEVICE_SERIAL}/slam/pose_markers
-      Name: SLAM
-      Namespaces:
-        pose_arrows: true
-      Queue Size: 100
+      Topic: /xv_sdk/${XV_DEVICE_SERIAL}/slam/trajectory
+      Name: SLAM Trajectory
+      Color: 21; 214; 190
+      Alpha: 1
+      Buffer Length: 1
+      Line Style: Lines
+      Line Width: 0.035
+      Pose Style: None
+      Value: true
+    - Class: rviz/Pose
+      Enabled: true
+      Topic: /xv_sdk/${XV_DEVICE_SERIAL}/slam/current_pose
+      Name: SLAM Current Pose
+      Color: 41; 153; 255
+      Alpha: 1
+      Shape: Arrow
+      Queue Size: 10
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: map
+    Fixed Frame: ${XV_DEVICE_SERIAL}/map_optical_frame
     Frame Rate: 30
   Name: root
   Tools:

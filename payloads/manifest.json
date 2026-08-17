@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "2026.08.17.1",
+  "catalog_version": "2026.08.17.2",
   "sdk": [
     {
       "id": "xvsdk-20260430-focal",
@@ -12,7 +12,8 @@
       "package_version": "3.2.0",
       "path": "sdk/20260430/XVSDK_focal_amd64_0430.deb",
       "sha256": "3c0dfe8b7fd2828041a00b1586afb3f1c038dc0580d33df011b149e13120a7cb",
-      "notes": "适配新 PMD ToF 设备，修复 PMD ToF 反复开关问题。"
+      "notes": "适配新 PMD ToF 设备，修复 PMD ToF 反复开关问题。",
+      "notes_en": "Supports the newer PMD ToF device and fixes repeated PMD ToF start/stop issues."
     },
     {
       "id": "xvsdk-20260522-focal",
@@ -24,7 +25,8 @@
       "package_version": "3.2.0",
       "path": "sdk/20260522/XVSDK_focal_amd64_0522.deb",
       "sha256": "23c3230196cc76bd03e9ea537831cd61a29b060a620dcfb530c709875a96e91d",
-      "notes": "正式版：更新 ToF 库，修复多设备数据流，增加相机外参 Topic 与 SEUCM 标定参数。"
+      "notes": "正式版：更新 ToF 库，修复多设备数据流，增加相机外参 Topic 与 SEUCM 标定参数。",
+      "notes_en": "Production release with an updated ToF library, multi-device streaming fixes, camera extrinsic Topics, and SEUCM calibration parameters."
     }
   ],
   "firmware": [
@@ -38,7 +40,8 @@
       "minimum_sdk_release": "20260430",
       "path": "firmware/firmware-20260430.zip",
       "sha256": "6e86b41a9b229a59bbf708942bfc65a381ad33ca9825d54da68993230715b3ee",
-      "notes": "PMD-TOF 标准版相机正式固件，可用于回退。"
+      "notes": "PMD-TOF 标准版相机正式固件，可用于回退。",
+      "notes_en": "Production firmware for the standard PMD-TOF camera; suitable as a rollback release."
     },
     {
       "id": "firmware-pmdtof-20260514",
@@ -50,7 +53,8 @@
       "minimum_sdk_release": "20260522",
       "path": "firmware/firmware-20260514.zip",
       "sha256": "ad687036af887255c7b87b62e677b4c3e7fd42149ee8c378ea102cf2e1d6b02d",
-      "notes": "优化 ToF，建议配合 2026-05-22 SDK 正式版使用。"
+      "notes": "优化 ToF，建议配合 2026-05-22 SDK 正式版使用。",
+      "notes_en": "Improves ToF performance and is recommended with the 2026-05-22 production SDK."
     }
   ]
 }

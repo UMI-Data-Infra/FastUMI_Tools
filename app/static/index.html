@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <title>FastUMI Tools</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -13,30 +13,29 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark"><span></span><span></span><span></span></div>
+        <img src="/kuaimi-mark.svg" alt="Kuaimi" class="brand-mark">
         <div><strong>FastUMI</strong><small>TOOLS</small></div>
       </div>
       <nav id="nav">
-        <button class="nav-item active" data-view="overview"><span class="nav-icon">⌂</span><span>总览</span></button>
-        <button class="nav-item" data-view="resources"><span class="nav-icon">◇</span><span>软件与固件</span></button>
-        <button class="nav-item" data-view="monitor"><span class="nav-icon">⌁</span><span>数据监控</span></button>
-        <button class="nav-item" data-view="camera"><span class="nav-icon">◉</span><span>相机工具</span></button>
-        <button class="nav-item" data-view="activity"><span class="nav-icon">≡</span><span>任务与日志</span><i id="task-dot"></i></button>
+        <button class="nav-item active" data-view="overview"><span class="nav-icon">⌂</span><span data-i18n="nav.overview">总览</span></button>
+        <button class="nav-item" data-view="resources"><span class="nav-icon">◇</span><span data-i18n="nav.resources">SDK 和固件</span></button>
+        <button class="nav-item" data-view="monitor"><span class="nav-icon">⌁</span><span data-i18n="nav.monitor">数据监控</span></button>
+        <button class="nav-item" data-view="camera"><span class="nav-icon">◉</span><span data-i18n="nav.camera">相机工具</span></button>
+        <button class="nav-item" data-view="activity"><span class="nav-icon">≡</span><span data-i18n="nav.activity">任务与日志</span><i id="task-dot"></i></button>
       </nav>
-      <div class="side-status">
-        <span id="side-dot" class="pulse-dot warning"></span>
-        <div><strong id="side-status">正在连接</strong><small id="side-host">本机服务</small></div>
-      </div>
+      <div class="side-status"><span id="side-dot" class="pulse-dot warning"></span><div><strong id="side-status">正在连接</strong><small id="side-host">本机服务</small></div></div>
       <div class="side-version">FastUMI Tools <span id="side-version">—</span></div>
     </aside>
 
     <main class="workspace">
       <header class="topbar">
-        <button id="menu-toggle" class="icon-button mobile-only" aria-label="菜单">☰</button>
-        <div><div class="breadcrumb">FASTUMI / <span id="page-kicker">OVERVIEW</span></div><h1 id="page-title">设备总览</h1></div>
+        <button id="menu-toggle" class="icon-button mobile-only" aria-label="Menu">☰</button>
+        <div class="page-heading"><div class="breadcrumb">FASTUMI / <span id="page-kicker">OVERVIEW</span></div><h1 id="page-title">设备总览</h1></div>
         <div class="top-actions">
           <span id="last-checked" class="last-checked">等待首次检查</span>
-          <button id="refresh" class="button secondary"><span>↻</span> 刷新状态</button>
+          <button id="language-toggle" class="button compact secondary" title="Language">EN</button>
+          <button id="theme-toggle" class="button compact secondary" title="Theme" aria-label="切换主题">☼</button>
+          <button id="refresh" class="button secondary"><span>↻</span> <span data-i18n="common.refresh">刷新状态</span></button>
         </div>
       </header>
 
@@ -45,88 +44,69 @@
       <section id="view-overview" class="view active">
         <article class="hero panel">
           <div class="hero-copy">
-            <div id="hero-badge" class="status-badge warning"><span></span>正在检测</div>
-            <h2>一处管理所有<br><em>FastUMI</em> 工具</h2>
-            <p>设备连接、版本诊断、SDK 与固件、ROS 数据和相机工具，集中在一个本机控制台。</p>
+            <div id="hero-badge" class="status-badge warning"><span></span><b data-i18n="status.checking">正在检测</b></div>
+            <h2 data-i18n-html="overview.hero">一处管理所有<br><em>FastUMI</em> 工具</h2>
+            <p data-i18n="overview.copy">设备连接、版本诊断、SDK 与固件、ROS 数据和相机工具，集中在一个本机控制台。</p>
           </div>
-          <div class="hero-visual" aria-hidden="true">
-            <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
-            <div class="core"><span></span></div>
-            <div class="node node-a"></div><div class="node node-b"></div><div class="node node-c"></div>
-          </div>
+          <img class="hero-logo" src="/kuaimi-mark.svg" alt="Kuaimi Data Technology">
         </article>
-
         <div class="metrics">
-          <article class="metric panel"><span class="metric-icon cyan">USB</span><div><small>连接设备</small><strong id="metric-devices">—</strong><p id="metric-usb">等待检测</p></div></article>
-          <article class="metric panel"><span class="metric-icon violet">SDK</span><div><small>XVSDK</small><strong id="metric-sdk">—</strong><p id="metric-sdk-detail">等待检测</p></div></article>
-          <article class="metric panel"><span class="metric-icon green">ROS</span><div><small>ROS Master</small><strong id="metric-ros">—</strong><p id="metric-topics">等待检测</p></div></article>
-          <article class="metric panel"><span class="metric-icon amber">SYS</span><div><small>主机环境</small><strong id="metric-os">—</strong><p id="metric-disk">等待检测</p></div></article>
+          <article class="metric panel"><span class="metric-icon">USB</span><div><small data-i18n="metric.devices">连接设备</small><strong id="metric-devices">—</strong><p id="metric-usb">—</p></div></article>
+          <article class="metric panel"><span class="metric-icon violet">SDK</span><div><small>XVSDK</small><strong id="metric-sdk">—</strong><p id="metric-sdk-detail">—</p></div></article>
+          <article class="metric panel"><span class="metric-icon green">ROS</span><div><small>ROS Master</small><strong id="metric-ros">—</strong><p id="metric-topics">—</p></div></article>
+          <article class="metric panel"><span class="metric-icon amber">SYS</span><div><small data-i18n="metric.host">主机环境</small><strong id="metric-os">—</strong><p id="metric-disk">—</p></div></article>
         </div>
-
-        <div class="section-heading"><div><span>CONNECTED HARDWARE</span><h2>已连接设备</h2></div><button class="text-button" data-go="monitor">进入监控 →</button></div>
-        <div id="device-grid" class="device-grid"><div class="empty panel skeleton">正在读取设备信息…</div></div>
+        <div class="section-heading"><div><span>CONNECTED HARDWARE</span><h2 data-i18n="overview.connected">已连接设备</h2></div><button class="text-button" data-go="monitor" data-i18n="overview.toMonitor">进入监控 →</button></div>
+        <div id="device-grid" class="device-grid"><div class="empty panel skeleton" data-i18n="common.loading">正在读取设备信息…</div></div>
         <div id="warning-list" class="notice-list"></div>
       </section>
 
       <section id="view-resources" class="view">
-        <div class="page-intro"><div><span>VERSION CONTROL</span><h2>软件与固件</h2><p>仅支持 Ubuntu 20.04（Focal）；安装前自动校验系统、兼容性和文件完整性。</p></div><div class="catalog-chip">资源包 <strong id="catalog-version">—</strong></div></div>
-
+        <div class="page-intro"><div><span>VERSION CONTROL</span><h2 data-i18n="resources.title">SDK 和固件</h2><p data-i18n="resources.copy">仅支持 Ubuntu 20.04（Focal）；安装前自动校验系统、兼容性和文件完整性。</p></div><div class="catalog-chip"><span data-i18n="resources.catalog">资源包</span> <strong id="catalog-version">—</strong></div></div>
         <article class="panel resource-panel">
-          <div class="panel-head"><div><span class="panel-index">01</span><div><h3>XVSDK 管理</h3><p>提供 Ubuntu 20.04（Focal）专用安装包。</p></div></div><div id="current-sdk-chip" class="current-chip">当前：检测中</div></div>
+          <div class="panel-head"><div><span class="panel-index">01</span><div><h3 data-i18n="resources.sdk">XVSDK 管理</h3><p data-i18n="resources.sdkCopy">提供 Ubuntu 20.04（Focal）专用安装包。</p></div></div><div id="current-sdk-chip" class="current-chip">—</div></div>
           <div id="sdk-options" class="version-options"><div class="skeleton-block"></div></div>
-          <div class="action-row"><div class="action-note"><span>i</span><p>SDK 安装会更新系统库与 USB 权限规则，不会自动重启电脑。</p></div><button id="install-sdk" class="button primary" disabled>安装所选 SDK</button></div>
-          <div class="sub-action"><div><strong>ROS1 Wrapper</strong><small>检测到 ROS Noetic 后，可将当前 SDK 的 wrapper 编译到登录用户的 catkin_ws。</small></div><button id="install-ros" class="button secondary">安装 / 重建</button></div>
+          <div class="action-row"><div class="action-note"><span>i</span><p data-i18n="resources.sdkNote">SDK 安装会更新系统库与 USB 权限规则，不会自动重启电脑。</p></div><button id="install-sdk" class="button primary" disabled data-i18n="resources.installSdk">安装所选 SDK</button></div>
+          <div class="sub-action"><div><strong>ROS1 Wrapper</strong><small data-i18n="resources.rosCopy">检测到 ROS Noetic 后，可将当前 SDK 的 wrapper 编译到登录用户的 catkin_ws。</small></div><button id="install-ros" class="button secondary" data-i18n="resources.installRos">安装 / 重建</button></div>
         </article>
-
-        <article class="panel resource-panel firmware-panel">
-          <div class="panel-head"><div><span class="panel-index">02</span><div><h3>相机固件</h3><p>只展示受管的正式固件；刷新前执行严格安全检查。</p></div></div><div class="danger-chip">高风险操作</div></div>
+        <article class="panel resource-panel">
+          <div class="panel-head"><div><span class="panel-index">02</span><div><h3 data-i18n="resources.firmware">相机固件</h3><p data-i18n="resources.firmwareCopy">只展示受管的正式固件；刷新前执行严格安全检查。</p></div></div><div class="danger-chip" data-i18n="resources.risk">高风险操作</div></div>
           <div id="firmware-options" class="version-options"><div class="skeleton-block"></div></div>
-          <div class="firmware-target">
-            <label><span>目标相机</span><select id="firmware-device"><option value="">等待设备检测</option></select></label>
-            <div id="firmware-compat" class="compat-line"><span class="compat-dot"></span><span>选择版本和相机后检查兼容性</span></div>
-          </div>
-          <label class="safety-check"><input id="firmware-ack" type="checkbox"><span><strong>我已确认刷新期间不会拔线、断电或启动采集任务</strong><small>刷新时只能连接一台 FastUMI 相机，且相机不能被 ROS 或其他程序占用。</small></span></label>
-          <div class="action-row"><div class="action-note warning"><span>!</span><p>软件不会自动结束正在采集数据的进程；检测到占用时会阻止刷新。</p></div><button id="flash-firmware" class="button danger" disabled>刷新所选固件</button></div>
+          <div class="firmware-target"><label><span data-i18n="resources.target">目标相机</span><select id="firmware-device"><option value="">—</option></select></label><div id="firmware-compat" class="compat-line"><span class="compat-dot"></span><span>—</span></div></div>
+          <label class="safety-check"><input id="firmware-ack" type="checkbox"><span><strong data-i18n="resources.ack">我已确认刷新期间不会拔线、断电或启动采集任务</strong><small data-i18n="resources.ackCopy">刷新时只能连接一台 FastUMI 相机，且相机不能被 ROS 或其他程序占用。</small></span></label>
+          <div class="action-row"><div class="action-note warning"><span>!</span><p data-i18n="resources.flashNote">软件不会自动结束正在采集数据的进程；检测到占用时会阻止刷新。</p></div><button id="flash-firmware" class="button danger" disabled data-i18n="resources.flash">刷新所选固件</button></div>
         </article>
       </section>
 
       <section id="view-monitor" class="view">
-        <div class="page-intro"><div><span>ROS OBSERVABILITY</span><h2>数据监控</h2><p>合并原 FastUMI Monitor 的 Topic 频率检查、设备发现和 RViz 可视化。</p></div><div id="ros-state-chip" class="catalog-chip">ROS <strong>检测中</strong></div></div>
-        <article class="panel control-strip">
-          <label><span>设备序列号</span><select id="monitor-device"><option value="">等待 ROS 设备</option></select></label>
-          <div><span>Topic 总数</span><strong id="monitor-topic-count">—</strong></div>
-          <div><span>ROS Master</span><strong id="monitor-master">—</strong></div>
-        </article>
-        <article class="panel mode-switch"><div><span>DATA SOURCE</span><h3 id="ros-source-title">ROS 数据源未启动</h3><p>启动 XVSDK ROS wrapper 后才能检查 Topic 或使用 RViz；运行期间相机会由 XVSDK 独占。</p></div><div class="mode-actions"><button id="start-ros-driver" class="button primary">启动 ROS 数据源</button><button id="stop-ros-driver" class="button secondary">停止并恢复相机预览</button></div></article>
+        <div class="page-intro"><div><span>ROS OBSERVABILITY</span><h2 data-i18n="monitor.title">数据监控</h2><p data-i18n="monitor.copy">检查真实 ROS Topic 的发布状态、消息类型和频率，并启动 RViz 可视化。</p></div><div id="ros-state-chip" class="catalog-chip">ROS <strong>—</strong></div></div>
+        <article class="panel control-strip"><label><span data-i18n="monitor.serial">设备序列号</span><select id="monitor-device"><option value="">—</option></select></label><div><span data-i18n="monitor.count">Topic 总数</span><strong id="monitor-topic-count">—</strong></div><div><span>ROS Master</span><strong id="monitor-master">—</strong></div></article>
+        <article class="panel mode-switch"><div><span>DATA SOURCE</span><h3 id="ros-source-title">—</h3><p data-i18n="monitor.sourceCopy">启动 XVSDK ROS wrapper 后才能检查 Topic 或使用 RViz；运行期间相机会由 XVSDK 独占。</p></div><div class="mode-actions"><button id="start-ros-driver" class="button primary" data-i18n="monitor.start">启动 ROS 数据源</button><button id="stop-ros-driver" class="button secondary" data-i18n="monitor.stop">停止并恢复相机预览</button></div></article>
         <div class="two-column">
-          <article class="panel tool-panel"><div class="tool-head"><div class="tool-icon">Hz</div><div><h3>Topic 频率检查</h3><p>采样窗口约 15 秒，结果进入任务日志。</p></div></div><div id="topic-tools" class="tool-grid">
-            <button data-topic="slam-pose">SLAM Pose<small>slam/pose</small></button><button data-topic="slam-visual-pose">Visual Pose<small>slam/visual_pose</small></button><button data-topic="rgb">RGB Image<small>color_camera/image</small></button><button data-topic="tof">ToF Image<small>tof_camera/image</small></button><button data-topic="fisheye-left">Fisheye Left<small>left/camera_info</small></button><button data-topic="fisheye-right">Fisheye Right<small>right/camera_info</small></button><button data-topic="clamp">Clamp Data<small>clamp/Data</small></button>
+          <article class="panel tool-panel"><div class="tool-head"><div class="tool-icon">Hz</div><div><h3 data-i18n="monitor.topicCheck">Topic 状态与频率</h3><p data-i18n="monitor.topicCopy">先校验发布者和消息类型，再采样约 15 秒。</p></div></div><div id="topic-tools" class="tool-grid">
+            <button data-topic="slam-pose">SLAM Pose<small>slam/pose</small></button><button data-topic="slam-trajectory">SLAM Trajectory<small>slam/trajectory</small></button><button data-topic="rgb">RGB Image<small>color_camera/image</small></button><button data-topic="rgbd">RGBD Image<small>rgbd_camera/image</small></button><button data-topic="tof">ToF Image<small>tof_camera/image</small></button><button data-topic="imu">IMU<small>imu_sensor/data_raw</small></button><button data-topic="fisheye-left">Fisheye Left<small>left/image</small></button><button data-topic="fisheye-left2">Fisheye Left 2<small>left2/image</small></button><button data-topic="fisheye-right">Fisheye Right<small>right/image</small></button><button data-topic="fisheye-right2">Fisheye Right 2<small>right2/image</small></button><button data-topic="clamp">Clamp Data<small>clamp/Data</small></button>
           </div></article>
-          <article class="panel tool-panel"><div class="tool-head"><div class="tool-icon violet">3D</div><div><h3>RViz 可视化</h3><p>按设备序列号生成配置并在桌面启动。</p></div></div><div id="rviz-tools" class="tool-grid">
-            <button data-rviz="overview">综合视图<small>General</small></button><button data-rviz="four-fisheyes">四鱼眼<small>4 × Fisheye</small></button><button data-rviz="rgbd">RGBD<small>RGB + Depth</small></button><button data-rviz="tof">ToF<small>Depth</small></button><button data-rviz="slam">SLAM<small>Pose</small></button><button data-rviz="trajectory">轨迹<small>Markers</small></button>
-          </div></article>
+          <article class="panel tool-panel"><div class="tool-head"><div class="tool-icon violet">3D</div><div><h3 data-i18n="monitor.rviz">RViz 可视化</h3><p data-i18n="monitor.rvizCopy">SLAM 同时显示实时姿态和设备原生轨迹。</p></div></div><div id="rviz-tools" class="tool-grid"><button data-rviz="overview"><span data-i18n="monitor.general">综合视图</span><small>General</small></button><button data-rviz="four-fisheyes"><span data-i18n="monitor.fourFish">四鱼眼</span><small>4 × Fisheye</small></button><button data-rviz="rgbd">RGBD<small>RGB + Depth</small></button><button data-rviz="tof">ToF<small>Depth</small></button><button data-rviz="slam">SLAM<small>Pose + Path</small></button></div></article>
         </div>
       </section>
 
       <section id="view-camera" class="view">
-        <div class="page-intro"><div><span>CAMERA WORKBENCH</span><h2>相机工具</h2><p>统一启动低延迟 V4L2 预览和厂商标定工具。</p></div></div>
+        <div class="page-intro"><div><span>CAMERA WORKBENCH</span><h2 data-i18n="camera.title">相机工具</h2><p data-i18n="camera.copy">启动低延迟 V4L2 预览或厂商 RGB 标定程序。</p></div></div>
         <div class="two-column camera-columns">
-          <article class="panel camera-card"><div class="camera-art preview-art"><div class="scan"></div><span>LIVE</span></div><div class="camera-content"><h3>实时画面预览</h3><p>使用 YU12 / I420 低延迟管线打开机载视频设备，按 q 或 Esc 退出。若 ROS 正在采集，请先切换回相机预览模式。</p><div class="form-grid"><label><span>视频设备</span><select id="video-device"><option value="">未检测到 /dev/video*</option></select></label><label><span>帧率</span><select id="video-fps"><option>60</option><option>100</option><option>30</option></select></label><label><span>宽度</span><select id="video-width"><option>1280</option><option>1920</option><option>640</option></select></label><label><span>高度</span><select id="video-height"><option>1280</option><option>1080</option><option>720</option><option>480</option></select></label></div><div class="stacked-actions"><button id="start-preview" class="button primary wide">启动预览窗口</button><button id="restore-camera" class="button secondary wide">停止 ROS 并恢复视频设备</button></div></div></article>
-          <article class="panel camera-card"><div class="camera-art calibration-art"><div class="cal-ring"></div><div class="cal-cross"></div><span>CAL</span></div><div class="camera-content"><h3>RGB 标定控制台</h3><p>启动厂商 demo-api 和 pipe_srv 两个终端，通过指令读取 RGB 标定参数。</p><div class="requirements"><div><span>01</span>安装 XVSDK</div><div><span>02</span>连接一台相机</div><div><span>03</span>输入标定指令</div></div><button id="start-calibration" class="button secondary wide">启动标定控制台</button></div></article>
+          <article class="panel camera-card"><div class="camera-art preview-art"><div class="scan"></div><span>LIVE</span></div><div class="camera-content"><h3 data-i18n="camera.preview">实时画面预览</h3><p data-i18n="camera.previewCopy">使用低延迟管线打开视频设备，按 q 或 Esc 退出；ROS 数据模式下需先恢复相机。</p><div class="form-grid"><label><span data-i18n="camera.device">视频设备</span><select id="video-device"><option value="">—</option></select></label><label><span data-i18n="camera.fps">帧率</span><select id="video-fps"><option>60</option><option>100</option><option>30</option></select></label><label><span data-i18n="camera.width">宽度</span><select id="video-width"><option>1280</option><option>1920</option><option>640</option></select></label><label><span data-i18n="camera.height">高度</span><select id="video-height"><option>1280</option><option>1080</option><option>720</option><option>480</option></select></label></div><div class="stacked-actions"><button id="start-preview" class="button primary wide" data-i18n="camera.startPreview">启动预览窗口</button><button id="restore-camera" class="button secondary wide" data-i18n="camera.restore">停止 ROS 并恢复视频设备</button></div></div></article>
+          <article class="panel camera-card"><div class="camera-art calibration-art"><div class="cal-ring"></div><div class="cal-cross"></div><span>CAL</span></div><div class="camera-content"><h3 data-i18n="camera.calibration">RGB 标定控制台</h3><p data-i18n="camera.calibrationCopy">自动停止受管 ROS，依次启动并验证 demo-api 与 pipe_srv 两个终端。</p><div class="requirements"><div><span>01</span><b data-i18n="camera.reqSdk">安装 XVSDK</b></div><div><span>02</span><b data-i18n="camera.reqOne">只连接一台相机</b></div><div><span>03</span><b data-i18n="camera.reqCommand">先输入 1，初始化后再输入 37</b></div></div><button id="start-calibration" class="button secondary wide" data-i18n="camera.startCalibration">启动并检查标定控制台</button></div></article>
         </div>
       </section>
 
       <section id="view-activity" class="view">
-        <div class="page-intro"><div><span>AUDIT TRAIL</span><h2>任务与日志</h2><p>安装、刷新、检测与桌面工具启动都会留下可追溯记录。</p></div></div>
-        <article class="panel operation-panel"><div class="panel-head"><div><span class="panel-index">NOW</span><div><h3 id="operation-title">当前没有任务</h3><p id="operation-meta">等待操作</p></div></div><div id="operation-status" class="current-chip">空闲</div></div><pre id="operation-log" class="terminal"><span>FastUMI Tools ready.</span></pre></article>
-        <div class="section-heading"><div><span>HISTORY</span><h2>最近任务</h2></div></div><div id="history-list" class="history-list"><div class="empty panel">暂无任务记录</div></div>
+        <div class="page-intro"><div><span>AUDIT TRAIL</span><h2 data-i18n="activity.title">任务与日志</h2><p data-i18n="activity.copy">安装、刷新、检测与桌面工具启动都会留下可追溯记录。</p></div></div>
+        <article class="panel operation-panel"><div class="panel-head"><div><span class="panel-index">NOW</span><div><h3 id="operation-title">—</h3><p id="operation-meta">—</p></div></div><div id="operation-status" class="current-chip">—</div></div><pre id="operation-log" class="terminal">FastUMI Tools ready.</pre></article>
+        <div class="section-heading"><div><span>HISTORY</span><h2 data-i18n="activity.history">最近任务</h2></div></div><div id="history-list" class="history-list"><div class="empty panel" data-i18n="activity.empty">暂无任务记录</div></div>
       </section>
-
-      <footer><span>FastUMI Tools · Local Device Console</span><span id="footer-meta">—</span></footer>
+      <footer><span>FastUMI Tools · Kuaimi Data Technology</span><span id="footer-meta">—</span></footer>
     </main>
   </div>
-
-  <dialog id="confirm-dialog" class="confirm-dialog"><div class="dialog-mark">!</div><h2 id="dialog-title">确认操作</h2><p id="dialog-copy"></p><div id="dialog-summary" class="dialog-summary"></div><div class="dialog-actions"><button id="dialog-cancel" class="button secondary">取消</button><button id="dialog-confirm" class="button danger">确认继续</button></div></dialog>
+  <dialog id="confirm-dialog" class="confirm-dialog"><div class="dialog-mark">!</div><h2 id="dialog-title">—</h2><p id="dialog-copy"></p><div id="dialog-summary" class="dialog-summary"></div><div class="dialog-actions"><button id="dialog-cancel" class="button secondary" data-i18n="common.cancel">取消</button><button id="dialog-confirm" class="button danger">—</button></div></dialog>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -189,10 +189,14 @@ def ros_information() -> Dict[str, Any]:
     except Exception:
         pass
     unit_state, _ = run_command(["systemctl", "is-active", ROS_DRIVER_UNIT], timeout=3)
+    _, node_error = ros_shell("rosnode info /xv_sdk >/dev/null", timeout=4)
+    node_online = not bool(node_error)
     return {
         "online": not bool(error),
-        "driver_running": bool(serials),
-        "managed_driver_running": unit_state == "active",
+        "driver_running": bool(serials) and node_online,
+        "managed_driver_running": unit_state == "active" and node_online,
+        "driver_unit_active": unit_state == "active",
+        "driver_node_online": node_online,
         "master": ROS_MASTER_URI,
         "topic_count": len(topics),
         "serials": serials,
@@ -339,19 +343,33 @@ def collect_status(project_version: str) -> Dict[str, Any]:
     host = host_information()
     host["supported"] = str(host.get("codename") or "").lower() in SUPPORTED_OS_CODENAMES
     warnings: List[str] = []
+    warning_codes: List[str] = []
     if not host["supported"]:
         warnings.append("当前系统不受支持；FastUMI Tools 仅支持 Ubuntu 20.04（Focal）。")
+        warning_codes.append("unsupported_os")
     if not devices:
         warnings.append("未检测到 FastUMI/XVisio USB 相机。")
+        warning_codes.append("camera_missing")
     if devices and any(item.get("usb_generation") == "USB 2.0" for item in devices):
         warnings.append("检测到相机工作在 USB 2.0，建议连接 USB 3.x 接口。")
+        warning_codes.append("usb2")
     if not sdk["installed"]:
-        warnings.append("未检测到 XVSDK，可在“软件与固件”页面安装。")
+        warnings.append("未检测到 XVSDK，可在“SDK 和固件”页面安装。")
+        warning_codes.append("sdk_missing")
+    for device in devices:
+        actual = str(device.get("firmware_version") or "")
+        managed = str(device.get("managed_firmware_release") or "")
+        if managed and actual and managed not in actual:
+            warnings.append("相机实际固件与最近记录的刷新目标不一致，请重新插拔后复查，必要时重新刷新。")
+            warning_codes.append("firmware_mismatch")
+            break
     if devices and not videos:
         if ros.get("driver_running"):
             warnings.append("ROS 数据源正在独占相机；停止数据源后可恢复实时画面预览。")
+            warning_codes.append("ros_owns_camera")
         else:
             warnings.append("未检测到 V4L2 视频设备；可在“相机工具”中恢复 UVC 接口。")
+            warning_codes.append("video_missing")
     return {
         "project": {"name": "FastUMI Tools", "version": project_version},
         "checked_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -361,5 +379,6 @@ def collect_status(project_version: str) -> Dict[str, Any]:
         "video_devices": videos,
         "ros": ros,
         "warnings": warnings,
+        "warning_codes": warning_codes,
         "healthy": host["supported"] and bool(devices) and sdk["installed"],
     }

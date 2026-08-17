@@ -1,13 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="b" x1="18" y1="12" x2="110" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#13283d"/><stop offset="1" stop-color="#070d16"/></linearGradient>
-    <linearGradient id="c" x1="34" y1="30" x2="94" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#66e8ff"/><stop offset="1" stop-color="#2a86ff"/></linearGradient>
-    <filter id="g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
-  </defs>
-  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#b)" stroke="#29445f" stroke-width="2"/>
-  <circle cx="64" cy="64" r="31" fill="none" stroke="#55dbff" stroke-opacity=".16"/>
-  <path d="M64 29 99 64 64 99 29 64Z" fill="#41ccff" opacity=".18" filter="url(#g)"/>
-  <path d="M64 31 97 64 64 97 31 64Z" fill="none" stroke="url(#c)" stroke-width="3"/>
-  <rect x="50" y="50" width="28" height="28" rx="8" fill="#0c1724" stroke="#63e5ff" stroke-width="2" transform="rotate(45 64 64)"/>
-  <circle cx="42" cy="42" r="4" fill="#67e9ff"/><circle cx="86" cy="86" r="4" fill="#318cff"/>
+<svg viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="markGrad" x1="120" y1="150" x2="600" y2="570" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#19E6C9"/><stop offset="0.52" stop-color="#0EA5E9"/><stop offset="1" stop-color="#04111F"/></linearGradient></defs>
+  <rect width="720" height="720" rx="120" fill="#07111F"/>
+  <g transform="translate(10 58)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 95 V510" stroke="url(#markGrad)" stroke-width="34"/><path d="M120 305 L430 95" stroke="url(#markGrad)" stroke-width="34"/><path d="M120 305 L430 510" stroke="url(#markGrad)" stroke-width="34"/><path d="M410 510 L535 280 L670 510" stroke="#19E6C9" stroke-width="34"/><path d="M190 95 H430" stroke="#19E6C9" stroke-width="12"/><path d="M120 510 H325" stroke="#E2E8F0" stroke-width="12"/><path d="M430 95 C545 160 700 285 670 510" stroke="#334155" stroke-width="8" opacity="0.75"/>
+    <circle cx="120" cy="95" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="430" cy="95" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="120" cy="510" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="670" cy="510" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/>
+  </g>
 </svg>

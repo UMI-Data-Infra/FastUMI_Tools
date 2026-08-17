@@ -59,6 +59,13 @@ class Handler(BaseHTTPRequestHandler):
     def app(self) -> Application:
         return self.server.app  # type: ignore[attr-defined]
 
+    @property
+    def locale(self) -> str:
+        return "en" if self.headers.get("Accept-Language", "").lower().startswith("en") else "zh-CN"
+
+    def tr(self, zh: str, en: str) -> str:
+        return en if self.locale == "en" else zh
+
     def security_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -135,24 +142,28 @@ class Handler(BaseHTTPRequestHandler):
             self.api_error(404, "not found")
             return
         if not self.authorized():
-            self.api_error(403, "操作授权失败，请从桌面入口重新打开 FastUMI Tools。")
+            self.api_error(403, self.tr(
+                "操作授权失败，请从桌面入口重新打开 FastUMI Tools。",
+                "Operation authorization failed. Reopen FastUMI Tools from the desktop launcher.",
+            ))
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             length = 0
         if length < 2 or length > 65536:
-            self.api_error(400, "请求大小不正确。")
+            self.api_error(400, self.tr("请求大小不正确。", "The request size is invalid."))
             return
         try:
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(body, dict):
                 raise ValueError("body must be an object")
             action = str(body.pop("action", ""))
+            body.setdefault("locale", self.locale)
             operation = self.app.operations.start(action, body)
             self.send_json(202, {"ok": True, "data": operation})
         except (ValueError, json.JSONDecodeError) as exc:
-            self.api_error(400, "请求格式错误：%s" % exc)
+            self.api_error(400, self.tr("请求格式错误：%s", "Invalid request format: %s") % exc)
         except (OperationError, CatalogError) as exc:
             self.api_error(409, str(exc))
 
