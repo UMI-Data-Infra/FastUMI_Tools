@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from . import __version__
+
 
 class CatalogError(RuntimeError):
     pass
@@ -122,7 +124,7 @@ class Catalog:
 
     def public(self) -> Dict[str, Any]:
         return {
-            "project_version": self.data.get("project_version"),
+            "project_version": __version__,
             "catalog_version": self.data.get("catalog_version"),
             "os_codename": self.codename or None,
             "os_name": self.os_release.get("PRETTY_NAME"),
