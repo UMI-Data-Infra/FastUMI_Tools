@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+PORT=8765
+if [ -r /etc/fastumi-tools.conf ]; then
+  . /etc/fastumi-tools.conf
+fi
+
+TOKEN=""
+ATTEMPT=0
+while [ "$ATTEMPT" -lt 30 ]; do
+  if [ -r /run/fastumi-tools/access-token ]; then
+    TOKEN=$(sed -n '1p' /run/fastumi-tools/access-token)
+    break
+  fi
+  ATTEMPT=$((ATTEMPT + 1))
+  sleep 0.2
+done
+
+URL="http://127.0.0.1:$PORT/"
+if [ -n "$TOKEN" ]; then
+  URL="$URL?token=$TOKEN"
+fi
+if command -v xdg-open >/dev/null 2>&1; then
+  exec xdg-open "$URL"
+fi
+echo "$URL"
