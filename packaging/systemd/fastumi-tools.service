@@ -1,0 +1,23 @@
+[Unit]
+Description=FastUMI Tools local device console
+After=local-fs.target
+Wants=local-fs.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/fastumi-tools/app
+Environment=FASTUMI_PAYLOAD_ROOT=/var/lib/fastumi-tools/payloads
+EnvironmentFile=-/etc/fastumi-tools.conf
+WorkingDirectory=/opt/fastumi-tools
+ExecStart=/usr/bin/python3 -m fastumi_tools.server --host 127.0.0.1 --port ${PORT}
+Restart=on-failure
+RestartSec=2
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
