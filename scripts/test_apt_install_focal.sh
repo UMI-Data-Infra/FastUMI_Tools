@@ -9,12 +9,31 @@ if [[ ! -f "$REPOSITORY/dists/focal/InRelease" ]]; then
     exit 2
 fi
 
+PORT="${FASTUMI_APT_TEST_PORT:-18765}"
+SERVER_LOG="$(mktemp -t fastumi-apt-http.XXXXXX)"
+python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$REPOSITORY" >"$SERVER_LOG" 2>&1 &
+SERVER_PID=$!
+cleanup() {
+    kill "$SERVER_PID" >/dev/null 2>&1 || true
+    wait "$SERVER_PID" >/dev/null 2>&1 || true
+    rm -f "$SERVER_LOG"
+}
+trap cleanup EXIT
+for _ in {1..30}; do
+    if curl -fsS "http://127.0.0.1:$PORT/dists/focal/InRelease" >/dev/null; then
+        break
+    fi
+    sleep 0.1
+done
+curl -fsS "http://127.0.0.1:$PORT/dists/focal/InRelease" >/dev/null
+
 docker run --rm \
-    -v "$REPOSITORY:/fastumi-repository:ro" \
+    --network host \
+    -v "$REPOSITORY/fastumi-archive-keyring.gpg:/fastumi-archive-keyring.gpg:ro" \
     ubuntu:20.04 /bin/bash -euc '
         export DEBIAN_FRONTEND=noninteractive
-        install -m 0644 /fastumi-repository/fastumi-archive-keyring.gpg /usr/share/keyrings/fastumi-archive-keyring.gpg
-        printf "%s\n" "deb [arch=amd64 signed-by=/usr/share/keyrings/fastumi-archive-keyring.gpg] file:/fastumi-repository focal main" > /etc/apt/sources.list.d/fastumi-tools.list
+        install -m 0644 /fastumi-archive-keyring.gpg /usr/share/keyrings/fastumi-archive-keyring.gpg
+        printf "%s\n" "deb [arch=amd64 signed-by=/usr/share/keyrings/fastumi-archive-keyring.gpg] http://127.0.0.1:'"$PORT"' focal main" > /etc/apt/sources.list.d/fastumi-tools.list
         apt-get update
         apt-get install -y fastumi-tools
         test "$(dpkg-query -W -f="\${Status}" fastumi-tools)" = "install ok installed"
