@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastumi_tools.catalog import Catalog
 import fastumi_tools.operations as operations
@@ -46,6 +46,27 @@ class OperationValidationTests(unittest.TestCase):
     def test_unknown_action_is_rejected(self):
         with self.assertRaises(OperationError):
             self.manager.start("shell", {"command": "id"})
+
+    def test_operation_snapshot_reports_managed_preview(self):
+        process = Mock()
+        process.poll.return_value = None
+        self.manager.gui_processes["camera-preview"] = process
+        self.assertTrue(self.manager.snapshot()["preview_running"])
+
+        process.poll.return_value = 0
+        self.assertFalse(self.manager.snapshot()["preview_running"])
+        self.assertNotIn("camera-preview", self.manager.gui_processes)
+
+    def test_web_operation_closes_managed_preview_process_group(self):
+        process = Mock(pid=4321)
+        process.poll.return_value = None
+        self.manager.gui_processes["camera-preview"] = process
+        with patch("fastumi_tools.operations.os.killpg") as killpg:
+            self.manager.stop_camera_preview({})
+        killpg.assert_called_once_with(4321, operations.signal.SIGTERM)
+        process.wait.assert_called_once_with(timeout=3)
+        self.assertNotIn("camera-preview", self.manager.gui_processes)
+        self.assertIn("预览窗口已关闭", "\n".join(self.manager.current["logs"]))
 
     def test_topic_registry_matches_pc_b_ros_interfaces(self):
         self.assertNotIn("slam-visual-pose", TOPICS)
@@ -172,6 +193,75 @@ class OperationValidationTests(unittest.TestCase):
         self.assertEqual(usb_hid_interfaces("2-2", usb_bus), [usb_bus / "2-2:1.3"])
         self.assertEqual(hidraw_nodes_for_usb("2-2", sys_root, dev_root), [dev_root / "hidraw9"])
 
+    def test_dfu_runtime_is_checked_before_hid_mode_switch(self):
+        item = {
+            "id": "firmware-pmdtof-20260514", "label": "2026-05-14",
+            "release": "20260514", "minimum_sdk_release": "20260522",
+        }
+        archive = Path(self.temporary.name) / "firmware.zip"
+        archive.touch()
+        device = {
+            "serial": "250801DR48FP26003241", "usb_product_id": "f408",
+            "usb_generation": "USB 3.x", "in_use_by": [],
+        }
+        events = []
+
+        def run(argv, timeout=600, env=None):
+            events.append(("run", list(argv)))
+            return "dfu-util 0.9"
+
+        def bind(target):
+            events.append(("bind", target["serial"]))
+
+        with patch.object(self.manager.catalog, "resolve", return_value=(item, archive)), \
+                patch.object(operations, "get_usb_devices", return_value=[device]), \
+                patch.object(operations, "usb_devices_in_use", side_effect=lambda value: value), \
+                patch.object(self.manager, "require_root"), \
+                patch.object(self.manager, "require_firmware_sdk"), \
+                patch.object(self.manager, "stop_sources_for_firmware"), \
+                patch.object(self.manager, "wait_for_released_firmware_device", return_value=device), \
+                patch.object(self.manager, "install_rule"), \
+                patch.object(self.manager, "bind_firmware_hid", side_effect=bind), \
+                patch.object(self.manager, "run", side_effect=run), \
+                patch("fastumi_tools.operations.shutil.which", return_value="/usr/bin/dfu-util"):
+            self.manager.prepare_firmware_flash({
+                "artifact_id": item["id"], "acknowledged": True,
+                "serial_confirmation": device["serial"],
+            }, require_acknowledgement=True)
+
+        self.assertEqual(events[0], ("run", ["dfu-util", "-l"]))
+        self.assertEqual(events[1], ("bind", device["serial"]))
+
+    def test_main_firmware_waits_for_stable_loader_reenumeration(self):
+        clock = [0.0]
+
+        def monotonic():
+            return clock[0]
+
+        def sleep(seconds):
+            clock[0] += seconds
+
+        def devices():
+            devnum = "012" if clock[0] < 2 else "013"
+            return [{
+                "serial": "0.0", "usb_product_id": "f003", "usb_path": "1-9",
+                "usb_device_node": "/dev/bus/usb/001/%s" % devnum,
+            }]
+
+        probe = subprocess.CompletedProcess(
+            ["dfu-util", "-l"], 0, "Found DFU: [040e:f003]", "",
+        )
+        with patch.object(operations.time, "monotonic", side_effect=monotonic), \
+                patch.object(operations.time, "sleep", side_effect=sleep), \
+                patch.object(operations, "get_usb_devices", side_effect=devices), \
+                patch("fastumi_tools.operations.subprocess.run", return_value=probe):
+            result = self.manager.ensure_next_firmware_stage_ready(
+                "250801DR48FP26003241", timeout=12,
+            )
+
+        self.assertEqual(result["usb_device_node"], "/dev/bus/usb/001/013")
+        self.assertGreaterEqual(clock[0], 5)
+
     def test_firmware_success_is_recorded_only_with_actual_version(self):
         root = Path(self.temporary.name)
         archive = root / "firmware.zip"
@@ -246,6 +336,7 @@ class OperationValidationTests(unittest.TestCase):
         rule = (root / "payloads/firmware/99-LumosVisio.rules").read_text(encoding="utf-8")
         self.assertIn("/sys/bus/usb/drivers/usbhid", unit)
         self.assertIn('/sys/bus/usb/drivers/usbfs', unit)
+        self.assertIn("AF_NETLINK", unit)
         self.assertIn('KERNEL=="hidraw*"', rule)
 
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test and build core package
+        run: ./scripts/test.sh
+      - name: Build resource package
+        run: ./scripts/build_resources_deb.sh
+      - name: Inspect packages
+        run: |
+          dpkg-deb --info dist/fastumi-tools_*_amd64.deb
+          dpkg-deb --info dist/fastumi-tools-resources_*_amd64.deb
+      - name: Build ephemeral signed repository
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev gnupg xz-utils
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 0700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key 'FastUMI CI APT <ci@fastumi.invalid>' rsa2048 sign 1d
+          FASTUMI_APT_SIGNING_KEY="$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" {print $10; exit}')"
+          export FASTUMI_APT_SIGNING_KEY
+          ./scripts/build_apt_repository.sh dist/apt-repository \
+            dist/fastumi-tools_$(cat VERSION)_amd64.deb \
+            dist/fastumi-tools-resources_*_amd64.deb
+      - name: Verify APT install on clean Ubuntu 20.04
+        run: ./scripts/test_apt_install_focal.sh dist/apt-repository

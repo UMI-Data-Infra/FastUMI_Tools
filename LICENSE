@@ -1,0 +1,86 @@
+FastUMI Tools Proprietary Software License
+
+Copyright © 2026 FastUMI Team. All rights reserved.
+Contact: yding25@binghamton.edu
+
+IMPORTANT: PLEASE READ THIS LICENSE CAREFULLY. BY DOWNLOADING, INSTALLING,
+ACCESSING, OR USING FASTUMI TOOLS (THE "SOFTWARE"), YOU AGREE TO THIS LICENSE.
+
+1. Limited license
+
+FastUMI Team grants you a limited, non-exclusive, non-transferable,
+non-sublicensable license to download, install, and use unmodified official
+releases of the Software with supported FastUMI or XVisio devices for your own
+internal personal, research, or business purposes.
+
+You may view the source code published by FastUMI Team solely for evaluation,
+security review, and interoperability assessment. Source availability does not
+grant an open-source license or any ownership interest.
+
+2. Restrictions
+
+Unless FastUMI Team gives prior written permission, you must not:
+
+* modify, adapt, translate, patch, or create derivative works of the Software;
+* build or distribute modified or independently compiled versions of the
+  Software;
+* copy or redistribute the Software except for one reasonable backup copy;
+* sell, sublicense, rent, lease, host, publish, or otherwise make the Software
+  available to another person or organization;
+* reverse engineer, decompile, or disassemble the Software, except only to the
+  limited extent that applicable law expressly permits despite this restriction;
+* remove or alter copyright, trademark, attribution, authenticity, or other
+  proprietary notices; or
+* bypass or interfere with package signatures, access controls, safety checks,
+  or device protection mechanisms.
+
+Official package repositories, mirrors, content-delivery services, and service
+providers expressly authorized by FastUMI Team may reproduce and distribute
+unmodified official release artifacts as necessary to deliver the Software.
+
+3. Ownership
+
+The Software is licensed, not sold. FastUMI Team retains all right, title, and
+interest in and to the FastUMI-authored portions of the Software, including all
+copyright and other intellectual-property rights. No rights are granted except
+those expressly stated in this license.
+
+4. Third-party materials
+
+XVSDK, firmware, vendor utilities, ROS, and other third-party components may be
+subject to separate notices or terms from their respective owners. This license
+does not replace or limit those terms and does not claim ownership of
+third-party materials.
+
+5. Updates and official releases
+
+Only artifacts signed or published through channels designated by FastUMI Team
+are official releases. FastUMI Team may change, replace, or discontinue the
+Software or its update channels at any time.
+
+6. Termination
+
+This license terminates automatically if you breach its terms. Upon
+termination, you must stop using the Software and delete all copies in your
+possession or control.
+
+7. Disclaimer of warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED "AS IS" AND
+"AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+DEVICE FIRMWARE OPERATIONS CAN CARRY A RISK OF DATA LOSS OR DEVICE DAMAGE; YOU
+ARE RESPONSIBLE FOR FOLLOWING ALL DISPLAYED SAFETY INSTRUCTIONS.
+
+8. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, FASTUMI TEAM AND ITS CONTRIBUTORS WILL
+NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY,
+OR PUNITIVE DAMAGES, OR FOR LOSS OF DATA, PROFITS, REVENUE, OR BUSINESS, ARISING
+FROM OR RELATED TO THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+9. Permissions and questions
+
+For redistribution, modification, integration, OEM, or other commercial
+permissions not granted above, contact yding25@binghamton.edu.

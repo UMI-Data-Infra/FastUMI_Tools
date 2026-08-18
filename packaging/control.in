@@ -3,9 +3,11 @@ Version: @VERSION@
 Section: utils
 Priority: optional
 Architecture: amd64
-Maintainer: KM Data Pipeline
-Depends: python3 (>= 3.8), systemd, udev, xdg-utils
-Suggests: python3-opencv, python3-numpy, v4l-utils, gnome-terminal, rviz
+Maintainer: FastUMI Team <yding25@binghamton.edu>
+Depends: python3 (>= 3.8), systemd, udev, xdg-utils, dfu-util, python3-opencv, python3-numpy
+Recommends: fastumi-tools-resources (>= @CATALOG_VERSION@), v4l-utils, g++, gnome-terminal
+Suggests: rviz
+Homepage: https://github.com/KM-Data-Pipeline/FastUMI_Tools
 Description: Unified FastUMI device management console
  FastUMI Tools for Ubuntu 20.04 provides a local web console for XVSDK and firmware
  management, USB and version diagnostics, ROS topic monitoring, RViz,

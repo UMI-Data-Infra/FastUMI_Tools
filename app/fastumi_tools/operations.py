@@ -285,6 +285,7 @@ class OperationManager:
     def __init__(self, catalog: Catalog):
         self.catalog = catalog
         self.lock = threading.Lock()
+        self.gui_processes: Dict[str, subprocess.Popen] = {}
         self.current: Dict[str, Any] = {
             "id": None, "action": None, "status": "idle", "logs": [],
             "started_at": None, "finished_at": None, "error": None, "locale": "zh-CN",
@@ -297,7 +298,9 @@ class OperationManager:
 
     def snapshot(self) -> Dict[str, Any]:
         with self.lock:
-            return json.loads(json.dumps(self.current, ensure_ascii=False))
+            snapshot = json.loads(json.dumps(self.current, ensure_ascii=False))
+        snapshot["preview_running"] = self.gui_process_running("camera-preview")
+        return snapshot
 
     def log(self, message: str) -> None:
         clean = message.rstrip()
@@ -316,6 +319,7 @@ class OperationManager:
             "topic-check": self.check_topic,
             "rviz-launch": self.launch_rviz,
             "camera-preview": self.launch_camera_preview,
+            "camera-preview-stop": self.stop_camera_preview,
             "calibration-launch": self.launch_calibration,
             "ros-wrapper-install": self.install_ros_wrapper,
             "ros-driver-start": self.start_ros_driver,
@@ -630,11 +634,28 @@ class OperationManager:
 
     def ensure_next_firmware_stage_ready(self, serial: str, timeout: float = 35) -> Dict[str, Any]:
         deadline = time.monotonic() + timeout
+        minimum_ready_at = time.monotonic() + 5
+        candidate_identity = None
+        candidate_since = 0.0
+        self.log(self.tr(
+            "等待 USB Loader 断开并以稳定的 DFU 设备重新枚举……",
+            "Waiting for the USB Loader to disconnect and re-enumerate as a stable DFU device…",
+        ))
         while time.monotonic() < deadline:
             devices = get_usb_devices()
             if len(devices) == 1:
                 device = devices[0]
                 product = str(device.get("usb_product_id", "")).lower()
+                identity = (
+                    product,
+                    str(device.get("usb_path", "")),
+                    str(device.get("usb_device_node", "")),
+                )
+                if identity != candidate_identity:
+                    candidate_identity = identity
+                    candidate_since = time.monotonic()
+                stable = time.monotonic() - candidate_since >= 2
+                settled = time.monotonic() >= minimum_ready_at and stable
                 if product == DFU_USB_PRODUCT_ID:
                     try:
                         probe = subprocess.run(
@@ -644,12 +665,15 @@ class OperationManager:
                         listing = "%s\n%s" % (probe.stdout, probe.stderr)
                     except (OSError, subprocess.TimeoutExpired):
                         listing = ""
-                    if "040e:%s" % DFU_USB_PRODUCT_ID in listing.lower():
+                    if settled and "040e:%s" % DFU_USB_PRODUCT_ID in listing.lower():
                         self.log(self.tr("相机 DFU 模式已确认。", "Camera DFU mode verified."))
                         return device
-                if product == NORMAL_USB_PRODUCT_ID and str(device.get("serial", "")) == serial:
+                if settled and product == NORMAL_USB_PRODUCT_ID and str(device.get("serial", "")) == serial:
                     self.bind_firmware_hid(device)
                     return device
+            else:
+                candidate_identity = None
+                candidate_since = 0.0
             time.sleep(0.5)
         raise OperationError(self.tr(
             "写入 USB Loader 后，相机没有以普通模式或 DFU 模式重新枚举。",
@@ -727,6 +751,11 @@ class OperationManager:
         self.install_rule()
         if not shutil.which("dfu-util"):
             self.run(["apt-get", "install", "-y", "dfu-util"], timeout=900)
+        self.run(["dfu-util", "-l"], timeout=15)
+        self.log(self.tr(
+            "DFU 运行环境检查通过；libusb 可以在当前服务中初始化。",
+            "DFU runtime check passed; libusb initializes in the current service.",
+        ))
         self.bind_firmware_hid(device)
         self.log(self.tr(
             "全部写前检查通过：唯一相机 %s、USB 3.x、SDK、进程释放和 HID 均已确认。",
@@ -888,10 +917,28 @@ class OperationManager:
             return ""
         return "\n".join(content[-lines:]).strip()
 
-    @staticmethod
-    def reap_gui_process(process: subprocess.Popen) -> None:
+    def gui_process_running(self, name: str) -> bool:
+        with self.lock:
+            process = self.gui_processes.get(name)
+        if process is None:
+            return False
+        if process.poll() is None:
+            return True
+        with self.lock:
+            if self.gui_processes.get(name) is process:
+                self.gui_processes.pop(name, None)
+        return False
+
+    def reap_gui_process(self, process: subprocess.Popen, name: Optional[str] = None) -> None:
         """Reap a detached GUI after its window closes without blocking the API."""
-        threading.Thread(target=process.wait, name="fastumi-gui-reaper", daemon=True).start()
+        def wait_and_forget() -> None:
+            process.wait()
+            if name:
+                with self.lock:
+                    if self.gui_processes.get(name) is process:
+                        self.gui_processes.pop(name, None)
+
+        threading.Thread(target=wait_and_forget, name="fastumi-gui-reaper", daemon=True).start()
 
     def spawn_gui(
         self,
@@ -899,7 +946,10 @@ class OperationManager:
         startup_timeout: float = 1.5,
         allow_early_success: bool = False,
         ready_file: Optional[Path] = None,
-    ) -> None:
+        process_name: Optional[str] = None,
+    ) -> subprocess.Popen:
+        if process_name and self.gui_process_running(process_name):
+            raise OperationError(self.tr("相机预览窗口已经在运行。", "The camera preview window is already running."))
         command = self.gui_command(argv)
         self.log(self.tr("启动桌面程序：%s", "Launch desktop program: %s") % shlex.join([str(value) for value in argv]))
         GUI_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -911,18 +961,21 @@ class OperationManager:
                 )
         except OSError as exc:
             raise OperationError(self.tr("无法启动桌面程序：%s", "Unable to launch desktop program: %s") % exc) from exc
+        if process_name:
+            with self.lock:
+                self.gui_processes[process_name] = process
+        self.reap_gui_process(process, process_name)
         deadline = time.monotonic() + startup_timeout
         while time.monotonic() < deadline:
             if ready_file and ready_file.is_file():
                 ready_file.unlink(missing_ok=True)
-                self.reap_gui_process(process)
                 self.log(self.tr("桌面程序已就绪；日志：%s", "Desktop program is ready; log: %s") % log_path)
-                return
+                return process
             returncode = process.poll()
             if returncode is not None:
                 if returncode == 0 and allow_early_success and ready_file is None:
                     self.log(self.tr("桌面程序请求已提交；日志：%s", "Desktop launch request submitted; log: %s") % log_path)
-                    return
+                    return process
                 detail = self.gui_log_tail(log_path)
                 message = self.tr("桌面程序启动失败，退出码 %d", "Desktop program failed with exit code %d") % returncode
                 if detail:
@@ -944,8 +997,8 @@ class OperationManager:
             if detail:
                 message += "：%s" % detail
             raise OperationError(message)
-        self.reap_gui_process(process)
         self.log(self.tr("桌面程序已启动；日志：%s", "Desktop program started; log: %s") % log_path)
+        return process
 
     def launch_rviz(self, payload: Dict[str, Any]) -> None:
         serial = self.validated_serial(payload)
@@ -1000,8 +1053,39 @@ class OperationManager:
             "/usr/bin/python3", str(script), "--device", device,
             "--width", str(width), "--height", str(height), "--fps", str(fps),
             "--ready-file", str(ready_file),
-        ], startup_timeout=8.0, ready_file=ready_file)
-        self.log(self.tr("相机预览已启动，按 q 可关闭窗口。", "Camera preview started. Press q to close it."))
+        ], startup_timeout=8.0, ready_file=ready_file, process_name="camera-preview")
+        self.log(self.tr(
+            "相机预览已启动；可按 q、Esc，或在 Web 界面点击“关闭预览窗口”。",
+            "Camera preview started. Press q or Esc, or click Close preview in the web interface.",
+        ))
+
+    def stop_camera_preview(self, payload: Dict[str, Any]) -> None:
+        del payload
+        with self.lock:
+            process = self.gui_processes.get("camera-preview")
+        if process is None or process.poll() is not None:
+            with self.lock:
+                if self.gui_processes.get("camera-preview") is process:
+                    self.gui_processes.pop("camera-preview", None)
+            self.log(self.tr("预览窗口已经关闭。", "The preview window is already closed."))
+            return
+        self.log(self.tr("正在关闭相机预览窗口……", "Closing the camera preview window…"))
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=2)
+        with self.lock:
+            if self.gui_processes.get("camera-preview") is process:
+                self.gui_processes.pop("camera-preview", None)
+        self.log(self.tr("相机预览窗口已关闭。", "The camera preview window has been closed."))
 
     def desktop_runtime_directory(self, prefix: str, account: Optional[pwd.struct_passwd] = None) -> Path:
         account = account or active_desktop_user()

@@ -4,6 +4,8 @@ FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先
 
 项目版本以根目录的 [`VERSION`](VERSION) 为唯一来源；已发布版本及安装包见 [GitHub Releases](https://github.com/KM-Data-Pipeline/FastUMI_Tools/releases)。
 
+Copyright © 2026 FastUMI Team. All rights reserved. 本项目是专有软件，允许安装和使用官方未修改版本，但禁止擅自修改、制作衍生版本或重新分发。完整条款见 [`LICENSE`](LICENSE)，许可与商务问题请联系 [yding25@binghamton.edu](mailto:yding25@binghamton.edu)。
+
 > 系统要求：仅支持 **Ubuntu 20.04 LTS（Focal）amd64**，不支持 Ubuntu 22.04（Jammy）。软件会在不受支持的系统上阻止 SDK 安装和固件刷新。
 
 ## 功能
@@ -31,6 +33,33 @@ http://127.0.0.1:8765
 ```
 
 请使用桌面入口打开，入口会自动携带本机操作令牌。直接输入网址可以查看状态，但不能执行 SDK 安装或固件刷新。
+
+## 通过 APT 安装
+
+官方 APT 软件源仅支持 Ubuntu 20.04 Focal amd64。首次使用时下载并检查软件源配置脚本：
+
+```bash
+curl -fsSLO https://km-data-pipeline.github.io/FastUMI_APT/install-fastumi-repository.sh
+less install-fastumi-repository.sh
+sudo sh install-fastumi-repository.sh
+```
+
+此后可直接通过 APT 安装和升级：
+
+```bash
+sudo apt update
+sudo apt install fastumi-tools
+```
+
+APT 默认同时安装 `fastumi-tools-resources`，其中包含经过 SHA-256 清单校验的 XVSDK 和固件资源。仓库的 `InRelease` 由 FastUMI Team 专用密钥签名，系统通过独立的 `signed-by` keyring 验证，不会把该密钥加入全局 APT 信任范围。
+
+官方 APT 签名密钥指纹：
+
+```text
+8572 EAED 4E96 2EBF D857 D46F 2CD6 6EE3 737A 4EC8
+```
+
+源码仓库保持私有；公开的 [`FastUMI_APT`](https://github.com/KM-Data-Pipeline/FastUMI_APT) 仓库只保存官方签名的软件包和 APT 索引，不授予修改或制作衍生版本的许可。
 
 ## 受管版本
 
@@ -78,6 +107,14 @@ python3 -m fastumi_tools.server --port 8765
 ```text
 dist/fastumi-tools_<VERSION>_amd64.deb
 ```
+
+构建独立的 SDK 与固件资源包：
+
+```bash
+./scripts/build_resources_deb.sh
+```
+
+核心包通过 `Recommends` 安装资源包；这样软件版本与资源清单可以独立更新，同时 `sudo apt install fastumi-tools` 在默认 APT 配置下仍会安装完整功能。
 
 构建包含全部 SDK 和固件的离线包：
 

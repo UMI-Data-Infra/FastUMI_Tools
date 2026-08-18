@@ -1,0 +1,82 @@
+name: Release and publish APT repository
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FASTUMI_APT_PRIVATE_KEY_B64: ${{ secrets.FASTUMI_APT_PRIVATE_KEY_B64 }}
+      FASTUMI_APT_DEPLOY_KEY: ${{ secrets.FASTUMI_APT_DEPLOY_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install repository build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev gnupg xz-utils
+      - name: Verify release version
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          test "$GITHUB_REF_NAME" = "v$version"
+      - name: Test and build release artifacts
+        run: |
+          ./scripts/test.sh
+          ./scripts/build_resources_deb.sh
+          ./scripts/build_offline_bundle.sh
+      - name: Import APT signing key
+        run: |
+          test -n "$FASTUMI_APT_PRIVATE_KEY_B64"
+          printf '%s' "$FASTUMI_APT_PRIVATE_KEY_B64" | base64 --decode | gpg --batch --import
+          fingerprint="$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test -n "$fingerprint"
+          echo "FASTUMI_APT_SIGNING_KEY=$fingerprint" >> "$GITHUB_ENV"
+      - name: Build signed APT repository
+        run: |
+          ./scripts/build_apt_repository.sh dist/apt-repository \
+            dist/fastumi-tools_$(cat VERSION)_amd64.deb \
+            dist/fastumi-tools-resources_*_amd64.deb
+      - name: Verify repository on clean Ubuntu 20.04
+        run: ./scripts/test_apt_install_focal.sh dist/apt-repository
+      - name: Create GitHub Release
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --clobber \
+              dist/fastumi-tools_$(cat VERSION)_amd64.deb \
+              dist/fastumi-tools-resources_*_amd64.deb \
+              dist/fastumi-tools-offline_*.tar.gz
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+              --title "FastUMI Tools $(cat VERSION)" \
+              dist/fastumi-tools_$(cat VERSION)_amd64.deb \
+              dist/fastumi-tools-resources_*_amd64.deb \
+              dist/fastumi-tools-offline_*.tar.gz
+          fi
+      - name: Add offline download to public repository
+        run: |
+          install -d dist/apt-repository/downloads
+          install -m 0644 dist/fastumi-tools-offline_*.tar.gz dist/apt-repository/downloads/
+          (cd dist/apt-repository && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+      - name: Deploy public APT repository
+        run: |
+          test -n "$FASTUMI_APT_DEPLOY_KEY"
+          key="$RUNNER_TEMP/fastumi-apt-deploy-key"
+          known_hosts="$RUNNER_TEMP/fastumi-known-hosts"
+          printf '%s\n' "$FASTUMI_APT_DEPLOY_KEY" > "$key"
+          chmod 0600 "$key"
+          ssh-keyscan -t ed25519 github.com > "$known_hosts"
+          git -C dist/apt-repository init
+          git -C dist/apt-repository config user.name "FastUMI Release Bot"
+          git -C dist/apt-repository config user.email "yding25@binghamton.edu"
+          git -C dist/apt-repository add --all
+          git -C dist/apt-repository commit -m "Publish FastUMI Tools $GITHUB_REF_NAME"
+          git -C dist/apt-repository remote add origin git@github.com:KM-Data-Pipeline/FastUMI_APT.git
+          GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known_hosts" \
+            git -C dist/apt-repository push --force origin HEAD:main

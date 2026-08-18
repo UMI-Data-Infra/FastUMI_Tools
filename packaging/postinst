@@ -10,5 +10,6 @@ if systemctl list-unit-files xvision-version-web.service >/dev/null 2>&1; then
   systemctl disable --now xvision-version-web.service >/dev/null 2>&1 || true
 fi
 
-systemctl enable --now fastumi-tools.service >/dev/null 2>&1 || true
+systemctl enable fastumi-tools.service >/dev/null 2>&1 || true
+systemctl restart fastumi-tools.service >/dev/null 2>&1 || true
 exit 0

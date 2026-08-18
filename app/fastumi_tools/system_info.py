@@ -22,6 +22,10 @@ STATE_FILE = Path(os.environ.get("FASTUMI_STATE_FILE", "/var/lib/fastumi-tools/s
 ROS_MASTER_URI = os.environ.get("ROS_MASTER_URI", "http://localhost:11311")
 ROS_DRIVER_UNIT = "fastumi-ros-driver.service"
 SERIAL_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
+FIRMWARE_RELEASE_PATTERN = re.compile(r"(?<!\d)(20\d{6}(?:_\d+)?)(?!\d)")
+DEVICE_VERSION_LOG_PATTERN = re.compile(
+    r"Device [Vv]ersion\s*:\s*(.*?)\s+\(SN=([A-Za-z0-9_.:-]+)\)"
+)
 
 
 def read_text(path: Path) -> str:
@@ -59,6 +63,29 @@ def format_bcd_version(raw: str) -> str:
         except ValueError:
             return raw
     return raw
+
+
+def firmware_release(value: Any) -> Optional[str]:
+    matches = FIRMWARE_RELEASE_PATTERN.findall(str(value or ""))
+    if not matches:
+        return None
+    return next((match for match in matches if "_" in match), matches[0])
+
+
+def set_firmware_reading(
+    device: Dict[str, Any],
+    version: str,
+    source: str,
+    observed_at: Optional[str],
+    current_session: bool,
+    verified: bool,
+) -> None:
+    device["firmware_version"] = version.strip()
+    device["firmware_release"] = firmware_release(version)
+    device["firmware_source"] = source
+    device["firmware_observed_at"] = observed_at
+    device["firmware_current_session"] = current_session
+    device["firmware_verified"] = verified
 
 
 def get_usb_devices() -> List[Dict[str, Any]]:
@@ -221,9 +248,53 @@ def merge_firmware(devices: List[Dict[str, Any]], ros: Dict[str, Any]) -> None:
         for key in ("firmware_version", "device_version", "firmware", "version", "Version"):
             value = info.get(key)
             if isinstance(value, str) and value.strip():
-                device["firmware_version"] = value.strip()
-                device["firmware_source"] = "ROS / Device::info()"
+                set_firmware_reading(
+                    device, value, "ros_device_info", datetime.now().astimezone().isoformat(timespec="seconds"),
+                    current_session=True, verified=True,
+                )
                 break
+
+
+def merge_current_ros_journal_firmware(devices: List[Dict[str, Any]], ros: Dict[str, Any]) -> None:
+    """Read Device::info() from this managed ROS service activation only."""
+    if not devices or not ros.get("managed_driver_running"):
+        return
+    active_since, error = run_command([
+        "systemctl", "show", "--property=ActiveEnterTimestamp", "--value", ROS_DRIVER_UNIT,
+    ], timeout=3)
+    if error or not active_since:
+        return
+    output, error = run_command([
+        "journalctl", "-u", ROS_DRIVER_UNIT, "--since", active_since,
+        "--grep", r"Device [Vv]ersion.*\(SN=", "--output=json", "--no-pager", "--lines=20",
+    ], timeout=5)
+    if error:
+        return
+    by_serial = {str(item.get("serial")): item for item in devices}
+    for line in output.splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = str(record.get("MESSAGE", ""))
+        match = DEVICE_VERSION_LOG_PATTERN.search(message)
+        if not match:
+            continue
+        version, serial = match.groups()
+        device = by_serial.get(serial)
+        if not device or not version.strip():
+            continue
+        observed_at = None
+        try:
+            observed_at = datetime.fromtimestamp(
+                int(record.get("__REALTIME_TIMESTAMP")) / 1_000_000
+            ).astimezone().isoformat(timespec="seconds")
+        except (TypeError, ValueError, OSError, OverflowError):
+            pass
+        set_firmware_reading(
+            device, version, "ros_current_session", observed_at,
+            current_session=True, verified=True,
+        )
 
 
 def merge_fallback_firmware(devices: List[Dict[str, Any]]) -> None:
@@ -244,8 +315,10 @@ def merge_fallback_firmware(devices: List[Dict[str, Any]]) -> None:
             device = by_serial.get(str(raw.get("serial", "")))
             firmware = str(raw.get("firmware_version", "")).strip()
             if device and firmware:
-                device["firmware_version"] = firmware
-                device["firmware_source"] = "已有启动日志"
+                set_firmware_reading(
+                    device, firmware, "historical_startup_log", None,
+                    current_session=False, verified=False,
+                )
     if any(item.get("firmware_version") for item in devices):
         return
     # Initializing XVSDK to read Device::info() claims every USB interface and
@@ -281,8 +354,11 @@ def merge_fallback_firmware(devices: List[Dict[str, Any]]) -> None:
             if "firmware" in normalized or normalized in ("version", "device_version"):
                 firmware = str(raw_value).strip()
                 if firmware:
-                    device["firmware_version"] = firmware
-                    device["firmware_source"] = "SDK Device::info()"
+                    set_firmware_reading(
+                        device, firmware, "sdk_device_info",
+                        datetime.now().astimezone().isoformat(timespec="seconds"),
+                        current_session=True, verified=True,
+                    )
                     break
 
 
@@ -298,6 +374,21 @@ def merge_managed_firmware(devices: List[Dict[str, Any]]) -> None:
         managed = firmware.get(str(device.get("serial", "")))
         if isinstance(managed, dict):
             device["managed_firmware_release"] = managed.get("release")
+            device["last_verified_firmware_version"] = managed.get("actual_version")
+            device["last_verified_at"] = managed.get("verified_at")
+            use_verified_record = (
+                not device.get("firmware_version")
+                or (
+                    not device.get("firmware_current_session")
+                    and not device.get("firmware_verified")
+                )
+            )
+            if use_verified_record and managed.get("actual_version"):
+                set_firmware_reading(
+                    device, str(managed["actual_version"]), "post_flash_verification",
+                    str(managed.get("verified_at") or "") or None,
+                    current_session=False, verified=True,
+                )
 
 
 def video_devices() -> List[Dict[str, Any]]:
@@ -336,6 +427,7 @@ def collect_status(project_version: str) -> Dict[str, Any]:
     devices = usb_devices_in_use(get_usb_devices())
     ros = ros_information()
     merge_firmware(devices, ros)
+    merge_current_ros_journal_firmware(devices, ros)
     merge_fallback_firmware(devices)
     merge_managed_firmware(devices)
     sdk = sdk_information()
@@ -360,8 +452,12 @@ def collect_status(project_version: str) -> Dict[str, Any]:
         actual = str(device.get("firmware_version") or "")
         managed = str(device.get("managed_firmware_release") or "")
         if managed and actual and managed not in actual:
-            warnings.append("相机实际固件与最近记录的刷新目标不一致，请重新插拔后复查，必要时重新刷新。")
-            warning_codes.append("firmware_mismatch")
+            if device.get("firmware_current_session"):
+                warnings.append("当前会话读取的相机实际固件与软件记录的刷新目标不一致；以相机实际版本为准。")
+                warning_codes.append("firmware_record_mismatch")
+            else:
+                warnings.append("历史固件结果与软件记录的刷新目标不一致；请获取当前会话读数后再判断。")
+                warning_codes.append("firmware_unverified_mismatch")
             break
     if devices and not videos:
         if ros.get("driver_running"):

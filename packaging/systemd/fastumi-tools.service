@@ -18,7 +18,7 @@ ProtectKernelTunables=true
 ProtectKernelModules=false
 ProtectControlGroups=true
 ReadWritePaths=-/sys/bus/usb/drivers/uvcvideo -/sys/bus/usb/drivers/usbhid -/sys/bus/usb/drivers/usbfs
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 
 [Install]
 WantedBy=multi-user.target
