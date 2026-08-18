@@ -55,6 +55,7 @@ done
     gpg --batch --yes --export "$SIGNING_KEY" > fastumi-archive-keyring.gpg
     gpg --batch --yes --armor --export "$SIGNING_KEY" > fastumi-archive-keyring.asc
     install -m 0644 "$PROJECT_ROOT/packaging/apt/index.html" index.html
+    install -m 0644 "$PROJECT_ROOT/packaging/apt/README.md" README.md
     install -m 0755 "$PROJECT_ROOT/packaging/apt/install-fastumi-repository.sh" install-fastumi-repository.sh
     touch .nojekyll
     find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -11,15 +11,24 @@
 </head>
 <body>
   <h1>FastUMI Tools</h1>
-  <p>Official signed APT repository for Ubuntu 20.04 Focal amd64.</p>
-  <h2>Configure and install</h2>
+  <p>FastUMI Team 官方签名 APT 软件源，支持 Ubuntu 20.04 Focal amd64。</p>
+  <h2>配置并安装</h2>
   <pre>curl -fsSLO https://km-data-pipeline.github.io/FastUMI_APT/install-fastumi-repository.sh
 less install-fastumi-repository.sh
 sudo sh install-fastumi-repository.sh --install</pre>
-  <p>After the repository is configured, update or install at any time with:</p>
+  <p>配置软件源后，可以随时安装或升级：</p>
   <pre>sudo apt update
 sudo apt install fastumi-tools</pre>
-  <p><a href="https://github.com/KM-Data-Pipeline/FastUMI_APT">Official package repository</a> · <a href="mailto:yding25@binghamton.edu">Contact FastUMI Team</a></p>
-  <p class="muted">Copyright © 2026 FastUMI Team. All rights reserved. Proprietary software; modification and unauthorized redistribution are prohibited.</p>
+  <h2>启动与检查</h2>
+  <p>安装后从应用菜单打开 <strong>FastUMI Tools</strong>。将相机连接到 USB 3.x 接口，然后在“SDK 和固件”页面确认相机序列号、连接速率以及设备实际报告的版本。</p>
+  <p>刷新固件时只连接一台相机，过程中不要拔线或断电。ROS 数据源与实时预览不能同时运行；预览可通过 Web 页面中的“关闭预览”停止。</p>
+  <h2>升级与卸载</h2>
+  <pre>sudo apt update
+sudo apt install fastumi-tools
+
+sudo apt remove fastumi-tools fastumi-tools-resources</pre>
+  <p>卸载本工具不会自动卸载单独安装的 XVSDK，也不会回退相机固件。</p>
+  <p><a href="https://github.com/KM-Data-Pipeline/FastUMI_APT">GitHub 与完整使用说明</a> · <a href="mailto:yding25@binghamton.edu">联系 FastUMI Team</a></p>
+  <p class="muted">Copyright © 2026 FastUMI Team. All rights reserved. 专有商业软件；未经书面许可，禁止修改、制作衍生版本或擅自重新分发。</p>
 </body>
 </html>
