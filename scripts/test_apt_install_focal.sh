@@ -27,7 +27,7 @@ for _ in {1..30}; do
 done
 curl -fsS "http://127.0.0.1:$PORT/dists/focal/InRelease" >/dev/null
 
-docker run --rm \
+timeout 900 docker run --rm \
     --network host \
     -v "$REPOSITORY/fastumi-archive-keyring.gpg:/fastumi-archive-keyring.gpg:ro" \
     ubuntu:20.04 /bin/bash -euc '
@@ -35,9 +35,11 @@ docker run --rm \
         install -m 0644 /fastumi-archive-keyring.gpg /usr/share/keyrings/fastumi-archive-keyring.gpg
         printf "%s\n" "deb [arch=amd64 signed-by=/usr/share/keyrings/fastumi-archive-keyring.gpg] http://127.0.0.1:'"$PORT"' focal main" > /etc/apt/sources.list.d/fastumi-tools.list
         apt-get update
-        apt-get install -y fastumi-tools
+        apt-get install -y --no-install-recommends fastumi-tools fastumi-tools-resources
         test "$(dpkg-query -W -f="\${Status}" fastumi-tools)" = "install ok installed"
         test "$(dpkg-query -W -f="\${Status}" fastumi-tools-resources)" = "install ok installed"
+        /usr/bin/python3 -c "import cv2,numpy"
+        command -v dfu-util >/dev/null
         test -f /usr/share/doc/fastumi-tools/copyright
         test -f /usr/share/fastumi-tools/payloads/sdk/20260522/XVSDK_focal_amd64_0522.deb
         test -f /usr/share/fastumi-tools/payloads/firmware/firmware-20260514.zip
