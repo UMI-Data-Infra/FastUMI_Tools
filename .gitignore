@@ -7,8 +7,6 @@ dist/*
 !dist/.gitkeep
 app/bin/
 generated/
-payloads/firmware/*.zip
-payloads/sdk/**/*.deb
 *.tmp
 *.bak
 .DS_Store
