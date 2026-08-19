@@ -17,6 +17,21 @@ class CatalogError(RuntimeError):
 
 SUPPORTED_OS_CODENAMES = ("focal",)
 
+CAMERA_GENERATIONS = {
+    "gen1": {
+        "id": "gen1",
+        "label": "一代相机",
+        "label_en": "Gen 1 camera",
+        "firmware_management": True,
+    },
+    "gen2": {
+        "id": "gen2",
+        "label": "二代相机",
+        "label_en": "Gen 2 camera",
+        "firmware_management": False,
+    },
+}
+
 
 def read_os_release(path: Path = Path("/etc/os-release")) -> Dict[str, str]:
     values: Dict[str, str] = {}
@@ -100,6 +115,9 @@ class Catalog:
         result: List[Dict[str, Any]] = []
         for raw in self.data[kind]:
             item = dict(raw)
+            # Older manifests predate explicit generation metadata and are
+            # retained as Gen 1 resources for backwards compatibility.
+            item["camera_generation"] = str(item.get("camera_generation") or "gen1")
             path = self._safe_path(str(item.get("path", "")))
             item["available"] = path.is_file()
             supported = item.get("os_codenames") or []
@@ -130,6 +148,7 @@ class Catalog:
             "os_name": self.os_release.get("PRETTY_NAME"),
             "host_supported": self.host_supported,
             "supported_os_codenames": list(SUPPORTED_OS_CODENAMES),
+            "camera_generations": [dict(value) for value in CAMERA_GENERATIONS.values()],
             "sdk": self.items("sdk"),
             "firmware": self.items("firmware"),
         }

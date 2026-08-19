@@ -29,6 +29,7 @@ from .system_info import (
     sdk_information,
     sdk_probe_path,
     usb_devices_in_use,
+    video_devices,
 )
 
 
@@ -461,15 +462,39 @@ class OperationManager:
         self.require_root()
         artifact_id = str(payload.get("artifact_id", ""))
         item, path = self.catalog.resolve("sdk", artifact_id)
+        requested_generation = str(payload.get("camera_generation", "")).strip().lower()
+        item_generation = str(item.get("camera_generation") or "gen1").lower()
+        if requested_generation and requested_generation != item_generation:
+            raise OperationError(self.tr(
+                "所选相机代际与 SDK 资源不匹配（资源属于 %s）。",
+                "The selected camera generation does not match this SDK resource (resource is for %s).",
+            ) % (self.tr("二代相机" if item_generation == "gen2" else "一代相机", "Gen 2 camera" if item_generation == "gen2" else "Gen 1 camera")))
+        if self.ros_driver_active():
+            self.run(["systemctl", "stop", ROS_DRIVER_UNIT], timeout=30)
+            self.log(self.tr(
+                "SDK 安装前已停止 ROS 数据源，以释放相机和旧 wrapper。",
+                "Stopped the ROS data source before SDK installation to release the camera and old wrapper.",
+            ))
+            time.sleep(1)
         self.log(self.tr("已校验 SDK %s（%s）。", "Validated SDK %s (%s).") % (item["label"], item["id"]))
         self.install_rule()
         environment = dict(os.environ)
         environment["DEBIAN_FRONTEND"] = "noninteractive"
         self.run(["apt-get", "install", "-y", "--reinstall", str(path)], timeout=1800, env=environment)
         self.compile_sdk_probe()
+        wrapper_source = Path("/usr/share/ros-wrapper/xv_sdk")
+        ros_setup = Path("/opt/ros/noetic/setup.bash")
+        if wrapper_source.is_dir() and ros_setup.is_file():
+            self.install_ros_wrapper({"clean": True})
+        else:
+            self.log(self.tr(
+                "未检测到 ROS Noetic 或 SDK ROS1 wrapper，跳过 ROS1 重编译。",
+                "ROS Noetic or the SDK ROS1 wrapper is unavailable; skipped the ROS1 rebuild.",
+            ))
         state = load_state()
         state.update({
             "sdk_release": item["release"], "sdk_artifact": item["id"],
+            "sdk_camera_generation": item_generation,
             "sdk_installed_at": now_iso(),
         })
         save_state(state)
@@ -724,6 +749,13 @@ class OperationManager:
         self.require_root()
         artifact_id = str(payload.get("artifact_id", ""))
         item, archive = self.catalog.resolve("firmware", artifact_id)
+        requested_generation = str(payload.get("camera_generation") or "gen1").lower()
+        item_generation = str(item.get("camera_generation") or "gen1").lower()
+        if requested_generation != "gen1" or item_generation != "gen1":
+            raise OperationError(self.tr(
+                "二代相机固件只能在 Windows 升级工具中刷新；FastUMI Tools 只提供二代 SDK 安装。",
+                "Gen 2 firmware must be flashed with the Windows upgrade tool; FastUMI Tools only installs the Gen 2 SDK.",
+            ))
         if require_acknowledgement and payload.get("acknowledged") is not True:
             raise OperationError(self.tr("请确认刷新期间不会拔线或断电。", "Confirm that USB and power will remain connected during the flash."))
         devices = usb_devices_in_use(get_usb_devices())
@@ -1041,6 +1073,13 @@ class OperationManager:
             raise OperationError(self.tr("画面参数格式不正确。", "Invalid preview parameter format.")) from exc
         if width not in (640, 1280, 1920) or height not in (480, 720, 1080, 1280) or fps not in (30, 60, 100):
             raise OperationError(self.tr("不支持的分辨率或帧率。", "Unsupported resolution or frame rate."))
+        details = next((item for item in video_devices() if item.get("path") == device), None)
+        if details and not details.get("previewable", True):
+            raise OperationError(self.tr(
+                "所选视频节点不是可预览的图像采集节点，请选择 RGB、鱼眼或 ToF 节点。",
+                "The selected video node is not a previewable capture stream. Choose an RGB, fisheye, or ToF node.",
+            ))
+        pixel_format = str((details or {}).get("format") or "NV12")
         script = APP_ROOT / "tools" / "camera_preview.py"
         dependency_check = subprocess.run(
             ["/usr/bin/python3", "-c", "import cv2,numpy"],
@@ -1052,6 +1091,7 @@ class OperationManager:
         self.spawn_gui([
             "/usr/bin/python3", str(script), "--device", device,
             "--width", str(width), "--height", str(height), "--fps", str(fps),
+            "--format", pixel_format,
             "--ready-file", str(ready_file),
         ], startup_timeout=8.0, ready_file=ready_file, process_name="camera-preview")
         self.log(self.tr(
@@ -1237,6 +1277,16 @@ class OperationManager:
         destination = workspace / "src" / "xv_sdk"
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(str(source), str(destination), dirs_exist_ok=True)
+        if payload.get("clean"):
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            for generated in (workspace / "build", workspace / "devel"):
+                if generated.is_dir():
+                    backup = generated.with_name("%s.before-sdk-%s" % (generated.name, stamp))
+                    shutil.move(str(generated), str(backup))
+                    self.log(self.tr(
+                        "已备份旧 ROS 构建目录：%s",
+                        "Backed up the old ROS build directory: %s",
+                    ) % backup)
         for root, directories, files in os.walk(str(workspace)):
             os.chown(root, account.pw_uid, account.pw_gid)
             for name in directories + files:

@@ -195,6 +195,7 @@ def sdk_information() -> Dict[str, Any]:
         "runtime_version": runtime or None,
         "managed_release": state.get("sdk_release"),
         "managed_artifact": state.get("sdk_artifact"),
+        "managed_camera_generation": state.get("sdk_camera_generation"),
     }
 
 
@@ -396,12 +397,43 @@ def video_devices() -> List[Dict[str, Any]]:
     for name in sorted(glob.glob("/dev/video*")):
         item: Dict[str, Any] = {"path": name, "name": Path(name).name}
         if shutil.which("v4l2-ctl"):
-            output, _ = run_command(["v4l2-ctl", "-d", name, "--info"], timeout=3)
+            output, _ = run_command(["v4l2-ctl", "-d", name, "--all"], timeout=3)
             for line in output.splitlines():
                 if "Card type" in line and ":" in line:
                     item["label"] = line.split(":", 1)[1].strip()
-                    break
+                if "Driver name" in line and ":" in line:
+                    item["driver"] = line.split(":", 1)[1].strip()
+                if "Device Caps" in line and ":" in line:
+                    item["capabilities"] = line.split(":", 1)[1].strip()
+            label = str(item.get("label", ""))
+            capabilities = str(item.get("capabilities", ""))
+            # v4l2-ctl prints the capability names on lines following the
+            # hexadecimal Device Caps value, so inspect the complete report.
+            item["capture"] = "Video Capture" in output or not output
+            item["metadata"] = "Metadata Capture" in output and "Video Capture" not in output
+            if "UVC_RGB" in label:
+                item["role"] = "rgb"
+                item["format"] = "NV12"
+            elif "UVC_FE" in label:
+                item["role"] = "fisheye"
+                item["format"] = "Y8"
+            elif "UVC_TOF" in label:
+                item["role"] = "tof"
+                item["format"] = "Y16"
+            else:
+                item["role"] = "webcam"
+            item["previewable"] = bool(item["capture"] and not item["metadata"])
+        else:
+            item["capture"] = True
+            item["previewable"] = True
         result.append(item)
+    # Prefer the first actual RGB stream as the default; metadata nodes remain
+    # visible for diagnostics but are excluded from the preview selector.
+    preferred = False
+    for item in result:
+        if item.get("role") == "rgb" and item.get("previewable") and not preferred:
+            item["recommended"] = True
+            preferred = True
     return result
 
 

@@ -18,12 +18,22 @@ class FrontendTests(unittest.TestCase):
                 "%s must exist in both zh-CN and en dictionaries" % key,
             )
 
-    def test_theme_and_language_controls_exist(self):
+    def test_polaris_theme_and_preferences_exist(self):
         html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
-        self.assertIn('id="language-toggle"', html)
-        self.assertIn('id="theme-toggle"', html)
+        stylesheet = (ROOT / "app/static/styles.css").read_text(encoding="utf-8")
+        javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        self.assertIn('<html lang="zh-CN" data-theme="light">', html)
+        self.assertIn('id="settings-menu"', html)
+        self.assertIn('data-locale-option="zh-CN"', html)
+        self.assertIn('data-locale-option="en"', html)
+        for theme in ("light", "dark", "system"):
+            self.assertIn('data-theme-option="%s"' % theme, html)
+        self.assertIn('"light","dark","system"', javascript)
+        self.assertIn("--gui-color-primary: #2563eb", stylesheet)
+        self.assertIn("--gui-control-height: 40px", stylesheet)
+        self.assertNotIn("ambient-one", html)
         self.assertIn('src="/kuaimi-mark.svg"', html)
-        self.assertIn("Copyright © 2026 FastUMI Team", html)
+        self.assertIn("© 2026 FastUMI Team. All rights reserved.", html)
         self.assertIn("yding25@binghamton.edu", html)
 
     def test_firmware_preflight_is_separate_from_flash(self):
@@ -33,6 +43,25 @@ class FrontendTests(unittest.TestCase):
         self.assertIn('id="flash-firmware"', html)
         self.assertIn('startOperation("firmware-preflight"', javascript)
         self.assertIn('startOperation("firmware-flash"', javascript)
+
+    def test_camera_generation_is_an_explicit_persisted_choice(self):
+        html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
+        javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        self.assertIn('data-camera-generation="gen1"', html)
+        self.assertIn('data-camera-generation="gen2"', html)
+        self.assertIn('id="generation-current"', html)
+        self.assertIn('fastumi-camera-generation', javascript)
+        self.assertIn('x.camera_generation||"gen1")===state.cameraGeneration', javascript)
+
+    def test_gen2_mode_exposes_sdk_but_hides_firmware_management(self):
+        html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
+        javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        self.assertIn('id="gen2-sdk-note"', html)
+        self.assertIn('id="firmware-panel"', html)
+        self.assertIn('$("firmware-panel").hidden=gen2', javascript)
+        self.assertIn('$("gen2-sdk-note").hidden=!gen2', javascript)
+        self.assertIn('二代固件请使用 Windows 升级工具', javascript)
+        self.assertIn('Use the Windows upgrade tool for Gen 2 firmware', javascript)
 
     def test_firmware_display_distinguishes_actual_reading_from_flash_record(self):
         javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")

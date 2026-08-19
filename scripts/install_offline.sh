@@ -14,7 +14,7 @@ fi
 
 install -d -m 0755 /var/lib/fastumi-tools/payloads
 cp -a "$BUNDLE_ROOT/payloads/." /var/lib/fastumi-tools/payloads/
-apt-get install -y "$PACKAGE"
+apt-get install -y --reinstall "$PACKAGE"
 systemctl restart fastumi-tools.service
 
 echo "FastUMI Tools 安装完成。"

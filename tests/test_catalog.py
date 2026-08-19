@@ -59,6 +59,16 @@ class CatalogTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.assertEqual(catalog.public()["project_version"], __version__)
 
+    def test_public_catalog_describes_both_camera_generations(self):
+        temporary, catalog = self.make_catalog()
+        self.addCleanup(temporary.cleanup)
+        public = catalog.public()
+        generations = {item["id"]: item for item in public["camera_generations"]}
+        self.assertEqual(set(generations), {"gen1", "gen2"})
+        self.assertTrue(generations["gen1"]["firmware_management"])
+        self.assertFalse(generations["gen2"]["firmware_management"])
+        self.assertEqual(public["sdk"][0]["camera_generation"], "gen1")
+
     def test_path_escape_is_rejected(self):
         temporary, catalog = self.make_catalog()
         self.addCleanup(temporary.cleanup)

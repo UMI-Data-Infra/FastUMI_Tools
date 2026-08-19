@@ -47,6 +47,32 @@ class OperationValidationTests(unittest.TestCase):
         with self.assertRaises(OperationError):
             self.manager.start("shell", {"command": "id"})
 
+    def test_sdk_install_rejects_generation_mismatch_before_system_changes(self):
+        item = {
+            "id": "gen2-sdk", "label": "2026-05-08", "release": "20260508",
+            "camera_generation": "gen2",
+        }
+        with patch.object(self.manager, "require_root"), \
+                patch.object(self.manager.catalog, "resolve", return_value=(item, Path("/tmp/gen2.deb"))), \
+                patch.object(self.manager, "install_rule") as install_rule:
+            with self.assertRaisesRegex(OperationError, "代际"):
+                self.manager.install_sdk({
+                    "artifact_id": "gen2-sdk", "camera_generation": "gen1",
+                })
+        install_rule.assert_not_called()
+
+    def test_gen2_firmware_is_rejected_before_preflight(self):
+        item = {
+            "id": "gen1-firmware", "label": "Gen 1", "release": "20260514",
+            "camera_generation": "gen1",
+        }
+        with patch.object(self.manager, "require_root"), \
+                patch.object(self.manager.catalog, "resolve", return_value=(item, Path("/tmp/gen2.zip"))):
+            with self.assertRaisesRegex(OperationError, "Windows"):
+                self.manager.prepare_firmware_flash(
+                    {"camera_generation": "gen2"}, require_acknowledgement=False,
+                )
+
     def test_operation_snapshot_reports_managed_preview(self):
         process = Mock()
         process.poll.return_value = None
