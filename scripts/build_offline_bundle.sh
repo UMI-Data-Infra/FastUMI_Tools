@@ -12,6 +12,8 @@ BUNDLE_ROOT="$STAGE/$BUNDLE_NAME"
 install -d "$BUNDLE_ROOT"
 cp "$PACKAGE" "$BUNDLE_ROOT/"
 cp -a "$PROJECT_ROOT/payloads" "$BUNDLE_ROOT/payloads"
+"$PROJECT_ROOT/scripts/build_probe_helpers.sh" \
+    "$PROJECT_ROOT/payloads" "$BUNDLE_ROOT/payloads/probes"
 install -m 0755 "$PROJECT_ROOT/scripts/install_offline.sh" "$BUNDLE_ROOT/install.sh"
 (
   cd "$BUNDLE_ROOT"
@@ -21,4 +23,3 @@ install -m 0755 "$PROJECT_ROOT/scripts/install_offline.sh" "$BUNDLE_ROOT/install
 OUTPUT="$PROJECT_ROOT/dist/${BUNDLE_NAME}.tar.gz"
 tar -czf "$OUTPUT" -C "$STAGE" "$BUNDLE_NAME"
 echo "$OUTPUT"
-

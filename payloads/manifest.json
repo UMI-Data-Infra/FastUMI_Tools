@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "2026.08.19.1",
+  "catalog_version": "2026.08.25.1",
   "sdk": [
     {
       "id": "xvsdk-20260430-focal",

@@ -5,8 +5,8 @@ Priority: optional
 Architecture: amd64
 Maintainer: FastUMI Team <yding25@binghamton.edu>
 Depends: fastumi-tools (>= @MINIMUM_TOOLS_VERSION@)
-Homepage: https://github.com/KM-Data-Pipeline/FastUMI_Tools
+Homepage: https://github.com/UMI-Data-Infra/FastUMI_Tools
 Description: XVSDK and firmware resources for FastUMI Tools
  Versioned Gen 1 and Gen 2 XVSDK packages plus Gen 1 camera firmware artifacts
- for Ubuntu 20.04 Focal amd64. Gen 2 firmware remains Windows-only. Files are
- verified against the FastUMI catalog before installation or flashing.
+ and isolated read-only device probes for Ubuntu 20.04 Focal amd64. Gen 2
+ firmware remains Windows-only. Files are verified against the FastUMI catalog.

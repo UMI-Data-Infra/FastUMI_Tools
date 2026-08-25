@@ -9,11 +9,14 @@ STAGE="$(mktemp -d -t fastumi-tools-resources-deb.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
 
 install -d "$STAGE/DEBIAN" "$STAGE/usr/share/fastumi-tools/payloads"
+install -d "$STAGE/usr/lib/fastumi-tools/probes"
 install -d "$STAGE/usr/share/doc/fastumi-tools-resources" "$OUTPUT_DIR"
 cp -a "$PROJECT_ROOT/payloads/sdk" "$STAGE/usr/share/fastumi-tools/payloads/"
 install -d "$STAGE/usr/share/fastumi-tools/payloads/firmware"
 find "$PROJECT_ROOT/payloads/firmware" -maxdepth 1 -type f -name '*.zip' \
     -exec install -m 0644 {} "$STAGE/usr/share/fastumi-tools/payloads/firmware/" \;
+"$PROJECT_ROOT/scripts/build_probe_helpers.sh" \
+    "$PROJECT_ROOT/payloads" "$STAGE/usr/lib/fastumi-tools/probes"
 
 sed -e "s/@CATALOG_VERSION@/$CATALOG_VERSION/g" \
     -e "s/@MINIMUM_TOOLS_VERSION@/$TOOLS_VERSION/g" \

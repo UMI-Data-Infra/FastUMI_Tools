@@ -41,6 +41,11 @@ class VersionTests(unittest.TestCase):
             self.assertIn(package, control)
         self.assertIn("fastumi-tools-resources", control)
         self.assertTrue((project_root / "scripts/build_resources_deb.sh").is_file())
+        probe_build = (project_root / "scripts/build_probe_helpers.sh").read_text(encoding="utf-8")
+        config = (project_root / "packaging/fastumi-tools.conf").read_text(encoding="utf-8")
+        self.assertIn("*.so*", probe_build)
+        self.assertIn("xvsdk_version", probe_build)
+        self.assertIn("FASTUMI_AUTO_DEVICE_PROBE=1", config)
         self.assertTrue((project_root / ".github/workflows/release.yml").is_file())
 
 

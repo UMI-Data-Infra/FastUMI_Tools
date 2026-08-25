@@ -5,6 +5,28 @@
 #include <sstream>
 #include <string>
 
+// The release helpers are built on Ubuntu 22.04 but run on Ubuntu 20.04.
+// Keep the tiny launcher on the oldest glibc entry point used by both systems.
+#if defined(__GLIBC__)
+extern "C" {
+char __libc_single_threaded = 0;
+typedef int (*main_function)(int, char**, char**);
+extern int __libc_start_main_2_2_5(
+  main_function, int, char**, void (*)(), void (*)(), void (*)(), void*
+);
+__asm__(".symver __libc_start_main_2_2_5,__libc_start_main@GLIBC_2.2.5");
+int __wrap___libc_start_main(
+  main_function main, int argc, char** argv,
+  void (*init)(), void (*fini)(), void (*rtld_fini)(), void* stack_end
+)
+{
+  return __libc_start_main_2_2_5(
+    main, argc, argv, init, fini, rtld_fini, stack_end
+  );
+}
+}
+#endif
+
 static std::string json_escape(const std::string& value)
 {
   std::ostringstream output;

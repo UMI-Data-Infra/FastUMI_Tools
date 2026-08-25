@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPOSITORY_URL="https://km-data-pipeline.github.io/FastUMI_APT"
+REPOSITORY_URL="https://umi-data-infra.github.io/FastUMI_Tools_APT"
 KEYRING="/usr/share/keyrings/fastumi-archive-keyring.gpg"
 SOURCE_LIST="/etc/apt/sources.list.d/fastumi-tools.list"
 

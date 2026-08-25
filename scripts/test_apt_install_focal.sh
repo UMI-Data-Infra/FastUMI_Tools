@@ -43,6 +43,12 @@ timeout 900 docker run --rm \
         test -f /usr/share/doc/fastumi-tools/copyright
         test -f /usr/share/fastumi-tools/payloads/sdk/20260522/XVSDK_focal_amd64_0522.deb
         test -f /usr/share/fastumi-tools/payloads/firmware/firmware-20260514.zip
+        test -x /usr/lib/fastumi-tools/probes/gen1/xvsdk_version
+        test -x /usr/lib/fastumi-tools/probes/gen2/xvsdk_version
+        test -f /usr/lib/fastumi-tools/probes/gen1/usr/lib/libxvsdk.so
+        test -f /usr/lib/fastumi-tools/probes/gen2/usr/lib/libxvsdk.so
+        /usr/lib/fastumi-tools/probes/gen1/xvsdk_version --version | grep -q "3.2.0"
+        /usr/lib/fastumi-tools/probes/gen2/xvsdk_version --version | grep -q "3.2.0"
         apt-get remove -y fastumi-tools fastumi-tools-resources
         test ! -e /opt/fastumi-tools
     '

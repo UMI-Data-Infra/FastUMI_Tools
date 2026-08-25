@@ -454,7 +454,7 @@ class OperationManager:
         self.run([
             "g++", "-std=c++11", "-O2", "-I%s" % header.parent,
             str(source), "-o", str(output), "-L%s" % library.parent,
-            "-Wl,-rpath,%s" % library.parent, "-lxvsdk",
+            "-Wl,--wrap=__libc_start_main", "-Wl,-rpath,%s" % library.parent, "-lxvsdk",
         ], timeout=120)
         output.chmod(0o755)
 

@@ -77,6 +77,6 @@ jobs:
           git -C dist/apt-repository config user.email "yding25@binghamton.edu"
           git -C dist/apt-repository add --all
           git -C dist/apt-repository commit -m "Publish FastUMI Tools $GITHUB_REF_NAME"
-          git -C dist/apt-repository remote add origin git@github.com:KM-Data-Pipeline/FastUMI_APT.git
+          git -C dist/apt-repository remote add origin git@github.com:UMI-Data-Infra/FastUMI_Tools_APT.git
           GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known_hosts" \
             git -C dist/apt-repository push --force origin HEAD:main

@@ -7,7 +7,7 @@
 首次使用时下载并检查软件源配置脚本：
 
 ```bash
-curl -fsSLO https://km-data-pipeline.github.io/FastUMI_APT/install-fastumi-repository.sh
+curl -fsSLO https://umi-data-infra.github.io/FastUMI_Tools_APT/install-fastumi-repository.sh
 less install-fastumi-repository.sh
 sudo sh install-fastumi-repository.sh
 sudo apt install fastumi-tools

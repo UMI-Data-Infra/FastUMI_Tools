@@ -2,7 +2,7 @@
 
 FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先分散在版本检测、`FastUMI_SDK`、`FastUMI_Monitor` 和 `FastUMI_Camera` 中的常用能力集中到一个简洁的 Web 界面中。
 
-项目版本以根目录的 [`VERSION`](VERSION) 为唯一来源；已发布版本及安装包见 [GitHub Releases](https://github.com/KM-Data-Pipeline/FastUMI_Tools/releases)。
+项目版本以根目录的 [`VERSION`](VERSION) 为唯一来源；已发布版本及安装包见 [GitHub Releases](https://github.com/UMI-Data-Infra/FastUMI_Tools/releases)。
 
 Copyright © 2026 FastUMI Team. All rights reserved. 本项目是专有软件，允许安装和使用官方未修改版本，但禁止擅自修改、制作衍生版本或重新分发。完整条款见 [`LICENSE`](LICENSE)，许可与商务问题请联系 [yding25@binghamton.edu](mailto:yding25@binghamton.edu)。
 
@@ -10,7 +10,8 @@ Copyright © 2026 FastUMI Team. All rights reserved. 本项目是专有软件，
 
 ## 功能
 
-- 自动检测 FastUMI / XVisio USB 相机、序列号、USB 2.0/3.x、固件和 SDK 版本。
+- 相机插入后自动检测序列号、USB 2.0/3.x，并通过隔离的只读 SDK 运行时读取真实固件；无需先安装或刷新 SDK/固件。
+- 分别显示系统已安装的 XVSDK 与设备读取所用的 SDK 交付版本，避免把探测运行时误认为系统 SDK。
 - 在“SDK 和固件”页明确选择“一代相机”或“二代相机”，只显示对应代际的 XVSDK，避免混装。
 - 一代相机可安装 2026-04-30 / 2026-05-22 SDK，并刷新 2026-04-30 / 2026-05-14 PMD-TOF 固件。
 - 二代相机可安装稳定的 2026-05-08 无 ToF SDK，或选择尚待验证的 2026-08-12 含 ToF SDK；不提供固件刷新入口。
@@ -41,10 +42,13 @@ http://127.0.0.1:8765
 
 1. 将相机直接连接到电脑的 USB 3.x 接口；刷新一代固件时只连接一台 FastUMI 相机。
 2. 从应用菜单启动 **FastUMI Tools**，不要直接以 root 用户运行浏览器。
-3. 在“SDK 和固件”页面先明确选择“一代相机”或“二代相机”，再选择该代际的 SDK。
-4. 一代相机可以继续选择固件并按页面提示完成刷新；刷新过程中不要拔线、断电、关闭服务或启动其他相机程序。
-5. 二代相机页面只提供 SDK 安装。二代固件必须使用 Windows 升级工具，FastUMI Tools 不会在 Linux 中尝试刷新。
-6. 操作完成后，以页面重新读取到的实际版本为准；仅有任务记录而没有设备版本验真，不会显示为刷新成功。
+3. 页面每 5 秒检查一次热插拔。空闲相机接入后会自动显示实际固件和“读取 SDK”，不需要先执行 SDK 安装或固件刷新。
+4. 在“SDK 和固件”页面先明确选择“一代相机”或“二代相机”，再选择该代际的系统 SDK。
+5. 一代相机可以继续选择固件并按页面提示完成刷新；刷新过程中不要拔线、断电、关闭服务或启动其他相机程序。
+6. 二代相机页面只提供 SDK 安装。二代固件必须使用 Windows 升级工具，FastUMI Tools 不会在 Linux 中尝试刷新。
+7. 操作完成后，以页面重新读取到的实际版本为准；仅有任务记录而没有设备版本验真，不会显示为刷新成功。
+
+自动读取只会在设备空闲时运行；检测到 ROS、实时预览或其他进程占用后会等待释放。探测器使用资源包中的隔离运行库，不会把 XVSDK 安装到系统目录，并会在读取后恢复 UVC 接口。管理员可在 `/etc/fastumi-tools.conf` 中设置 `FASTUMI_AUTO_DEVICE_PROBE=0` 关闭自动探测。
 
 ### 数据监控、预览与标定
 
@@ -83,7 +87,7 @@ sudo apt remove fastumi-tools fastumi-tools-resources
 官方 APT 软件源仅支持 Ubuntu 20.04 Focal amd64。首次使用时下载并检查软件源配置脚本：
 
 ```bash
-curl -fsSLO https://km-data-pipeline.github.io/FastUMI_APT/install-fastumi-repository.sh
+curl -fsSLO https://umi-data-infra.github.io/FastUMI_Tools_APT/install-fastumi-repository.sh
 less install-fastumi-repository.sh
 sudo sh install-fastumi-repository.sh
 ```
@@ -103,7 +107,7 @@ APT 默认同时安装 `fastumi-tools-resources`，其中包含经过 SHA-256 �
 8572 EAED 4E96 2EBF D857 D46F 2CD6 6EE3 737A 4EC8
 ```
 
-源码仓库保持私有；公开的 [`FastUMI_APT`](https://github.com/KM-Data-Pipeline/FastUMI_APT) 仓库只保存官方签名的软件包和 APT 索引，不授予修改或制作衍生版本的许可。
+源码仓库与 [`FastUMI_Tools_APT`](https://github.com/UMI-Data-Infra/FastUMI_Tools_APT) 软件包仓库保持私有，不授予修改或制作衍生版本的许可。
 
 ## 受管版本
 

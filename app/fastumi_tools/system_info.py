@@ -1,4 +1,4 @@
-"""Read-only host, SDK, USB, ROS and camera inspection."""
+"""Host, SDK, USB and ROS inspection with safe device-version probing."""
 
 from __future__ import annotations
 
@@ -9,23 +9,33 @@ import platform
 import re
 import shutil
 import subprocess
+import time
 import xmlrpc.client
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .catalog import SUPPORTED_OS_CODENAMES
+from .catalog import Catalog, SUPPORTED_OS_CODENAMES
 
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 STATE_FILE = Path(os.environ.get("FASTUMI_STATE_FILE", "/var/lib/fastumi-tools/state.json"))
 ROS_MASTER_URI = os.environ.get("ROS_MASTER_URI", "http://localhost:11311")
 ROS_DRIVER_UNIT = "fastumi-ros-driver.service"
+PROBE_HELPER_ROOT = Path(os.environ.get(
+    "FASTUMI_PROBE_HELPER_ROOT", "/usr/lib/fastumi-tools/probes",
+))
 SERIAL_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
 FIRMWARE_RELEASE_PATTERN = re.compile(r"(?<!\d)(20\d{6}(?:_\d+)?)(?!\d)")
 DEVICE_VERSION_LOG_PATTERN = re.compile(
     r"Device [Vv]ersion\s*:\s*(.*?)\s+\(SN=([A-Za-z0-9_.:-]+)\)"
 )
+PROBE_JSON_BEGIN = "XVISION_PROBE_JSON_BEGIN"
+PROBE_JSON_END = "XVISION_PROBE_JSON_END"
+PROBE_FAILURE_BACKOFF_SECONDS = 30.0
+
+_DEVICE_PROBE_CACHE: Dict[str, Dict[str, Any]] = {}
+_DEVICE_PROBE_FAILURES: Dict[str, float] = {}
 
 
 def read_text(path: Path) -> str:
@@ -132,8 +142,30 @@ def get_usb_devices() -> List[Dict[str, Any]]:
 
 
 def usb_devices_in_use(devices: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    targets = {item.get("usb_device_node"): item for item in devices if item.get("usb_device_node")}
-    owners: Dict[str, List[Dict[str, Any]]] = {str(path): [] for path in targets}
+    keys = {
+        id(item): "%s|%s" % (item.get("serial", ""), item.get("usb_path", ""))
+        for item in devices
+    }
+    targets: Dict[str, str] = {}
+    owners: Dict[str, List[Dict[str, Any]]] = {key: [] for key in keys.values()}
+    usb_root = Path("/sys/bus/usb/devices")
+    video_root = Path("/sys/class/video4linux")
+    for item in devices:
+        key = keys[id(item)]
+        if item.get("usb_device_node"):
+            targets[str(item["usb_device_node"])] = key
+        usb_path = str(item.get("usb_path") or "")
+        try:
+            usb_device = (usb_root / usb_path).resolve(strict=True)
+        except OSError:
+            continue
+        for video in video_root.glob("video*"):
+            try:
+                video_device = (video / "device").resolve(strict=True)
+            except OSError:
+                continue
+            if usb_device == video_device or usb_device in video_device.parents:
+                targets["/dev/%s" % video.name] = key
     if not targets:
         return devices
     try:
@@ -152,16 +184,17 @@ def usb_devices_in_use(devices: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 target = os.readlink(str(descriptor))
             except OSError:
                 continue
-            if target not in targets:
+            owner_key = targets.get(target)
+            if not owner_key:
                 continue
             entry = {
                 "pid": int(process.name),
                 "command": read_text(process / "comm") or "unknown",
             }
-            if entry not in owners[target]:
-                owners[target].append(entry)
+            if entry not in owners[owner_key]:
+                owners[owner_key].append(entry)
     for item in devices:
-        item["in_use_by"] = owners.get(str(item.get("usb_device_node")), [])
+        item["in_use_by"] = owners.get(keys[id(item)], [])
     return devices
 
 
@@ -178,17 +211,178 @@ def sdk_probe_path() -> Optional[Path]:
     return None
 
 
+def bundled_probe_specs() -> List[Dict[str, Any]]:
+    """Return signed-catalog probe helpers without extracting their SDKs."""
+    roots = [PROBE_HELPER_ROOT, Catalog.find_root() / "probes"]
+    result: List[Dict[str, Any]] = []
+    seen = set()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for metadata_path in sorted(root.glob("*/probe.json")):
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            helper = metadata_path.with_name("xvsdk_version")
+            artifact_id = str(metadata.get("artifact_id") or "")
+            generation = str(metadata.get("camera_generation") or "")
+            release = str(metadata.get("release") or "")
+            identity = (artifact_id, generation, release)
+            if (
+                metadata.get("schema_version") != 1
+                or not artifact_id
+                or generation not in ("gen1", "gen2")
+                or not release
+                or identity in seen
+                or not helper.is_file()
+                or not os.access(str(helper), os.X_OK)
+                or not (helper.parent / "usr/lib/libxvsdk.so").is_file()
+            ):
+                continue
+            seen.add(identity)
+            result.append({
+                "artifact_id": artifact_id,
+                "camera_generation": generation,
+                "release": release,
+                "runtime_version": str(metadata.get("runtime_version") or "") or None,
+                "helper": helper,
+                "source": "bundled",
+            })
+    return sorted(result, key=lambda item: str(item["camera_generation"]))
+
+
+def _read_state() -> Dict[str, Any]:
+    try:
+        value = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _installed_probe_spec() -> Optional[Dict[str, Any]]:
+    helper = sdk_probe_path()
+    if not helper:
+        return None
+    state = _read_state()
+    return {
+        "artifact_id": state.get("sdk_artifact"),
+        "camera_generation": state.get("sdk_camera_generation"),
+        "release": state.get("sdk_release"),
+        "runtime_version": None,
+        "helper": helper,
+        "source": "installed",
+    }
+
+
+def _prepare_bundled_probe(spec: Dict[str, Any]) -> Optional[Path]:
+    """Use the package-owned SDK runtime without installing it system-wide."""
+    helper = spec.get("helper")
+    if not isinstance(helper, Path) or not helper.is_file():
+        return None
+    if (helper.parent / "usr/lib/libxvsdk.so").is_file():
+        return helper
+    return None
+
+
+def _probe_payload(output: str) -> Dict[str, Any]:
+    start = output.rfind(PROBE_JSON_BEGIN)
+    finish = output.rfind(PROBE_JSON_END)
+    if start < 0 or finish <= start:
+        return {}
+    try:
+        value = json.loads(output[start + len(PROBE_JSON_BEGIN):finish].strip())
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _firmware_from_info(info: Any) -> Optional[str]:
+    if not isinstance(info, dict):
+        return None
+    for key, raw_value in info.items():
+        normalized = str(key).lower().replace("-", "_").replace(" ", "_")
+        if "firmware" in normalized or normalized in ("version", "device_version"):
+            firmware = str(raw_value).strip()
+            if firmware:
+                return firmware
+    return None
+
+
+def _device_probe_key(device: Dict[str, Any]) -> str:
+    return "|".join(str(device.get(key) or "") for key in (
+        "serial", "usb_path", "usb_device_node",
+    ))
+
+
+def _restore_uvc_after_probe(devices: List[Dict[str, Any]]) -> bool:
+    """Best-effort repair for SDK releases that leave UVC interfaces detached."""
+    bind = Path("/sys/bus/usb/drivers/uvcvideo/bind")
+    if not bind.exists():
+        run_command(["modprobe", "uvcvideo"], timeout=15)
+    if not bind.exists():
+        return False
+    usb_root = Path("/sys/bus/usb/devices")
+    found = False
+    restored = True
+    for device in devices:
+        usb_path = str(device.get("usb_path") or "")
+        for interface in usb_root.glob("%s:*" % usb_path):
+            if read_text(interface / "bInterfaceClass").lower() != "0e":
+                continue
+            if read_text(interface / "bInterfaceSubClass").lower() != "01":
+                continue
+            found = True
+            driver = interface / "driver"
+            try:
+                if driver.is_symlink() and driver.resolve().name == "uvcvideo":
+                    continue
+                bind.write_text(interface.name, encoding="ascii")
+            except OSError:
+                restored = False
+    if found:
+        run_command(["udevadm", "settle"], timeout=8)
+    return found and restored
+
+
+def _apply_probe_payload(
+    devices: List[Dict[str, Any]], payload: Dict[str, Any], spec: Dict[str, Any],
+) -> bool:
+    by_serial = {str(item.get("serial")): item for item in devices}
+    observed_at = datetime.now().astimezone().isoformat(timespec="seconds")
+    matched = False
+    runtime_version = str(payload.get("sdk_version") or spec.get("runtime_version") or "").strip()
+    for raw in payload.get("devices", []) if isinstance(payload.get("devices"), list) else []:
+        if not isinstance(raw, dict):
+            continue
+        device = by_serial.get(str(raw.get("serial") or ""))
+        if not device:
+            continue
+        matched = True
+        if runtime_version:
+            device["probe_sdk_runtime_version"] = runtime_version
+        if spec.get("release"):
+            device["probe_sdk_release"] = spec.get("release")
+        if spec.get("camera_generation"):
+            device["probe_sdk_generation"] = spec.get("camera_generation")
+        device["probe_sdk_source"] = spec.get("source")
+        firmware = _firmware_from_info(raw.get("info"))
+        if firmware:
+            set_firmware_reading(
+                device, firmware, "sdk_device_info", observed_at,
+                current_session=True, verified=True,
+            )
+    return matched
+
+
 def sdk_information() -> Dict[str, Any]:
     package, _ = run_command(["dpkg-query", "-W", "-f=${Version}", "xvsdk"])
     runtime = ""
     probe = sdk_probe_path()
     if probe:
         runtime, _ = run_command([str(probe), "--version"], timeout=12)
-    state: Dict[str, Any] = {}
-    try:
-        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        pass
+    state = _read_state()
+    bundled = bundled_probe_specs()
     return {
         "installed": bool(package or runtime),
         "package_version": package or None,
@@ -196,6 +390,8 @@ def sdk_information() -> Dict[str, Any]:
         "managed_release": state.get("sdk_release"),
         "managed_artifact": state.get("sdk_artifact"),
         "managed_camera_generation": state.get("sdk_camera_generation"),
+        "probe_available": bool(probe or bundled),
+        "probe_releases": [item["release"] for item in bundled],
     }
 
 
@@ -299,9 +495,25 @@ def merge_current_ros_journal_firmware(devices: List[Dict[str, Any]], ros: Dict[
 
 
 def merge_fallback_firmware(devices: List[Dict[str, Any]]) -> None:
-    """Use existing logs or the SDK helper without disturbing an occupied camera."""
-    if not devices or any(item.get("firmware_version") for item in devices):
+    """Read each newly connected idle camera, then cache the current USB session."""
+    if not devices:
+        _DEVICE_PROBE_CACHE.clear()
+        _DEVICE_PROBE_FAILURES.clear()
         return
+    connected_keys = {_device_probe_key(item) for item in devices}
+    for key in list(_DEVICE_PROBE_CACHE):
+        if key not in connected_keys:
+            _DEVICE_PROBE_CACHE.pop(key, None)
+    for key in list(_DEVICE_PROBE_FAILURES):
+        if key not in connected_keys:
+            _DEVICE_PROBE_FAILURES.pop(key, None)
+    for device in devices:
+        cached = _DEVICE_PROBE_CACHE.get(_device_probe_key(device))
+        if cached and not device.get("firmware_current_session"):
+            device.update(cached)
+    if all(item.get("firmware_current_session") for item in devices):
+        return
+
     by_serial = {str(item.get("serial")): item for item in devices}
     terminal_probe = APP_ROOT / "tools" / "terminal_probe.py"
     if terminal_probe.is_file():
@@ -320,47 +532,85 @@ def merge_fallback_firmware(devices: List[Dict[str, Any]]) -> None:
                     device, firmware, "historical_startup_log", None,
                     current_session=False, verified=False,
                 )
-    if any(item.get("firmware_version") for item in devices):
+
+    unresolved = [item for item in devices if not item.get("firmware_current_session")]
+    if not unresolved:
         return
-    # Initializing XVSDK to read Device::info() claims every USB interface and
-    # leaves /dev/video* detached on current releases. Keep status refreshes
-    # read-only unless an administrator explicitly opts in for diagnostics.
-    if os.environ.get("FASTUMI_ALLOW_DEVICE_PROBE") != "1":
+    if os.environ.get("FASTUMI_AUTO_DEVICE_PROBE", "1") == "0":
+        for item in unresolved:
+            item["firmware_probe_status"] = "disabled"
         return
+    # Only the installed root service may probe automatically because current
+    # XVSDK releases detach UVC while calling Device::info(). Root is required
+    # to bind those interfaces back before this status request completes.
+    if os.geteuid() != 0:
+        for item in unresolved:
+            item["firmware_probe_status"] = "requires_service"
+        return
+    # xv::getDevices() opens every connected XVisio camera. If any camera is
+    # busy, defer the entire probe instead of disrupting that device while
+    # trying to inspect another one.
     if any(item.get("in_use_by") for item in devices):
+        for item in unresolved:
+            item["firmware_probe_status"] = "occupied"
         return
-    probe = sdk_probe_path()
-    if not probe:
+
+    now = time.monotonic()
+    for item in unresolved:
+        if _DEVICE_PROBE_FAILURES.get(_device_probe_key(item), 0) > now:
+            item["firmware_probe_status"] = "failed"
+    unresolved = [
+        item for item in unresolved
+        if _DEVICE_PROBE_FAILURES.get(_device_probe_key(item), 0) <= now
+    ]
+    if not unresolved:
         return
-    output, _ = run_command([str(probe), "--devices"], timeout=15)
-    begin = "XVISION_PROBE_JSON_BEGIN"
-    end = "XVISION_PROBE_JSON_END"
-    start = output.rfind(begin)
-    finish = output.rfind(end)
-    if start < 0 or finish <= start:
+
+    specs: List[Dict[str, Any]] = []
+    installed = _installed_probe_spec()
+    if installed:
+        specs.append(installed)
+    specs.extend(bundled_probe_specs())
+    if not specs:
+        for item in unresolved:
+            item["firmware_probe_status"] = "unavailable"
         return
-    try:
-        value = json.loads(output[start + len(begin):finish].strip())
-    except json.JSONDecodeError:
-        return
-    for raw in value.get("devices", []) if isinstance(value, dict) else []:
-        if not isinstance(raw, dict):
+
+    for spec in specs:
+        if not any(not item.get("firmware_current_session") for item in unresolved):
+            break
+        helper = spec.get("helper") if spec.get("source") == "installed" else _prepare_bundled_probe(spec)
+        if not isinstance(helper, Path):
             continue
-        device = by_serial.get(str(raw.get("serial", "")))
-        info = raw.get("info") if isinstance(raw.get("info"), dict) else {}
-        if not device:
-            continue
-        for key, raw_value in info.items():
-            normalized = str(key).lower().replace("-", "_").replace(" ", "_")
-            if "firmware" in normalized or normalized in ("version", "device_version"):
-                firmware = str(raw_value).strip()
-                if firmware:
-                    set_firmware_reading(
-                        device, firmware, "sdk_device_info",
-                        datetime.now().astimezone().isoformat(timespec="seconds"),
-                        current_session=True, verified=True,
-                    )
-                    break
+        try:
+            output, error = run_command([str(helper), "--devices"], timeout=15)
+            if not error:
+                _apply_probe_payload(unresolved, _probe_payload(output), spec)
+        finally:
+            restored = _restore_uvc_after_probe(unresolved)
+            for item in unresolved:
+                if restored:
+                    item.pop("probe_uvc_restore_failed", None)
+                else:
+                    item["probe_uvc_restore_failed"] = True
+
+    cache_fields = (
+        "firmware_version", "firmware_release", "firmware_source",
+        "firmware_observed_at", "firmware_current_session", "firmware_verified",
+        "probe_sdk_runtime_version", "probe_sdk_release", "probe_sdk_generation",
+        "probe_sdk_source", "probe_uvc_restore_failed",
+    )
+    for item in unresolved:
+        key = _device_probe_key(item)
+        if item.get("firmware_current_session"):
+            item["firmware_probe_status"] = "succeeded"
+            _DEVICE_PROBE_CACHE[key] = {
+                field: item[field] for field in cache_fields if field in item
+            }
+            _DEVICE_PROBE_FAILURES.pop(key, None)
+        else:
+            item["firmware_probe_status"] = "failed"
+            _DEVICE_PROBE_FAILURES[key] = time.monotonic() + PROBE_FAILURE_BACKOFF_SECONDS
 
 
 def merge_managed_firmware(devices: List[Dict[str, Any]]) -> None:
@@ -463,6 +713,15 @@ def collect_status(project_version: str) -> Dict[str, Any]:
     merge_fallback_firmware(devices)
     merge_managed_firmware(devices)
     sdk = sdk_information()
+    for device in devices:
+        if str(device.get("firmware_source") or "").startswith("ros_"):
+            if sdk.get("managed_release"):
+                device["probe_sdk_release"] = sdk["managed_release"]
+            if sdk.get("runtime_version"):
+                device["probe_sdk_runtime_version"] = sdk["runtime_version"]
+            if sdk.get("managed_camera_generation"):
+                device["probe_sdk_generation"] = sdk["managed_camera_generation"]
+            device["probe_sdk_source"] = "installed"
     videos = video_devices()
     host = host_information()
     host["supported"] = str(host.get("codename") or "").lower() in SUPPORTED_OS_CODENAMES
@@ -478,8 +737,28 @@ def collect_status(project_version: str) -> Dict[str, Any]:
         warnings.append("检测到相机工作在 USB 2.0，建议连接 USB 3.x 接口。")
         warning_codes.append("usb2")
     if not sdk["installed"]:
-        warnings.append("未检测到 XVSDK，可在“SDK 和固件”页面安装。")
-        warning_codes.append("sdk_missing")
+        if sdk.get("probe_available"):
+            warnings.append("系统未安装 XVSDK；已使用隔离的只读 SDK 探测运行时读取设备版本。")
+            warning_codes.append("sdk_probe_only")
+        else:
+            warnings.append("未检测到 XVSDK 或只读探测运行时，可在“SDK 和固件”页面安装。")
+            warning_codes.append("sdk_missing")
+    probe_statuses = {str(item.get("firmware_probe_status") or "") for item in devices}
+    if "occupied" in probe_statuses:
+        warnings.append("相机正被其他程序占用；释放设备后将自动读取固件版本。")
+        warning_codes.append("firmware_probe_occupied")
+    elif "requires_service" in probe_statuses:
+        warnings.append("请通过已安装的 FastUMI Tools 服务打开控制台，以自动读取固件版本。")
+        warning_codes.append("firmware_probe_requires_service")
+    elif "unavailable" in probe_statuses:
+        warnings.append("未安装设备只读探测资源，暂时无法自动读取固件版本。")
+        warning_codes.append("firmware_probe_unavailable")
+    elif "failed" in probe_statuses:
+        warnings.append("本次未能从设备读取固件版本；软件会稍后自动重试。")
+        warning_codes.append("firmware_probe_failed")
+    if any(item.get("probe_uvc_restore_failed") for item in devices):
+        warnings.append("读取版本后未能确认 UVC 接口已恢复；请在“相机工具”中恢复视频设备。")
+        warning_codes.append("probe_uvc_restore_failed")
     for device in devices:
         actual = str(device.get("firmware_version") or "")
         managed = str(device.get("managed_firmware_release") or "")

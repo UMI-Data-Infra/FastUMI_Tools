@@ -69,7 +69,17 @@ class FrontendTests(unittest.TestCase):
         self.assertIn("d.firmware_source", javascript)
         self.assertIn("d.firmware_observed_at", javascript)
         self.assertIn("d.managed_firmware_release", javascript)
+        self.assertIn("d.probe_sdk_release", javascript)
+        self.assertIn("d.probe_sdk_runtime_version", javascript)
+        self.assertIn('"overview.readSdk"', javascript)
+        self.assertIn('"metric.readOnlyProbe"', javascript)
         self.assertIn('"overview.recordMismatch"', javascript)
+
+    def test_connected_devices_refresh_without_manual_click(self):
+        javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        self.assertIn("async function refreshConnectedDevices()", javascript)
+        self.assertIn('api("/api/status?refresh=1")', javascript)
+        self.assertIn("setInterval(refreshConnectedDevices,5000)", javascript)
 
     def test_obsolete_visual_pose_is_not_exposed(self):
         html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
