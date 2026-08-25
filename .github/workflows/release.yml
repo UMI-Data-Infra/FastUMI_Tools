@@ -59,12 +59,7 @@ jobs:
               dist/fastumi-tools-resources_*_amd64.deb \
               dist/fastumi-tools-offline_*.tar.gz
           fi
-      - name: Add offline download to public repository
-        run: |
-          install -d dist/apt-repository/downloads
-          install -m 0644 dist/fastumi-tools-offline_*.tar.gz dist/apt-repository/downloads/
-          (cd dist/apt-repository && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
-      - name: Deploy public APT repository
+      - name: Deploy private APT repository
         run: |
           test -n "$FASTUMI_APT_DEPLOY_KEY"
           key="$RUNNER_TEMP/fastumi-apt-deploy-key"

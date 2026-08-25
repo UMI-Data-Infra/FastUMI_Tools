@@ -53,7 +53,11 @@ PY
   output="$OUTPUT_ROOT/$generation"
   install -d "$output/usr/lib"
   find "$extracted/usr/lib" -maxdepth 1 -type f -name '*.so*' \
+    ! -name 'libCInterface-general.so' \
+    ! -name 'libxvisio-CInterface-wrapper.so' \
     -exec install -m 0644 {} "$output/usr/lib/" \;
+  find "$output/usr/lib" -maxdepth 1 -type f -name '*.so*' \
+    -exec strip --strip-unneeded {} +
   g++ -std=c++11 -O2 \
     -I"$extracted/usr/include/xvsdk" \
     "$PROJECT_ROOT/app/tools/xvsdk_version.cpp" \
@@ -64,6 +68,7 @@ PY
     -Wl,-rpath,'$ORIGIN/usr/lib' \
     -lxvsdk
   chmod 0755 "$output/xvsdk_version"
+  strip --strip-unneeded "$output/xvsdk_version"
   if objdump -T "$output/xvsdk_version" | grep -Eq 'GLIBC_2\.(3[2-9]|[4-9][0-9])'; then
     echo "Probe helper requires a glibc newer than Ubuntu 20.04: $generation" >&2
     exit 1

@@ -25,5 +25,9 @@ install -m 0644 "$PROJECT_ROOT/LICENSE" "$STAGE/usr/share/doc/fastumi-tools-reso
 install -m 0644 "$PROJECT_ROOT/NOTICE" "$STAGE/usr/share/doc/fastumi-tools-resources/NOTICE"
 
 PACKAGE="$OUTPUT_DIR/fastumi-tools-resources_${CATALOG_VERSION}_amd64.deb"
-dpkg-deb --build --root-owner-group "$STAGE" "$PACKAGE" >&2
+dpkg-deb --build --root-owner-group -Zxz -z9 "$STAGE" "$PACKAGE" >&2
+if [[ "$(stat -c %s "$PACKAGE")" -ge 100000000 ]]; then
+    echo "Resource package exceeds the APT Git repository size budget: $PACKAGE" >&2
+    exit 1
+fi
 echo "$PACKAGE"
