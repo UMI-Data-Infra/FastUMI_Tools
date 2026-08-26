@@ -18,7 +18,7 @@ class FrontendTests(unittest.TestCase):
                 "%s must exist in both zh-CN and en dictionaries" % key,
             )
 
-    def test_polaris_theme_and_preferences_exist(self):
+    def test_unified_theme_and_preferences_exist_without_external_branding(self):
         html = (ROOT / "app/static/index.html").read_text(encoding="utf-8")
         stylesheet = (ROOT / "app/static/styles.css").read_text(encoding="utf-8")
         javascript = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
@@ -29,10 +29,17 @@ class FrontendTests(unittest.TestCase):
         for theme in ("light", "dark", "system"):
             self.assertIn('data-theme-option="%s"' % theme, html)
         self.assertIn('"light","dark","system"', javascript)
-        self.assertIn("--gui-color-primary: #2563eb", stylesheet)
-        self.assertIn("--gui-control-height: 40px", stylesheet)
+        self.assertIn("--gui-color-primary: #2457d6", stylesheet)
+        self.assertIn("--gui-color-telemetry: #147f8e", stylesheet)
+        self.assertIn("--gui-control-height: 38px", stylesheet)
+        self.assertIn('class="connection-rail"', html)
+        self.assertNotIn("--gui-color-primary: #2563eb", stylesheet)
         self.assertNotIn("ambient-one", html)
-        self.assertIn('src="/kuaimi-mark.svg"', html)
+        combined = html + javascript + stylesheet
+        for branding in ("北辰蓝", "POLARIS FIELD", "Polaris Blue", "kuaimi-mark.svg", "favicon.svg"):
+            self.assertNotIn(branding, combined)
+        self.assertFalse((ROOT / "app/static/kuaimi-mark.svg").exists())
+        self.assertFalse((ROOT / "app/static/favicon.svg").exists())
         self.assertIn("© 2026 FastUMI Team. All rights reserved.", html)
         self.assertIn("yding25@binghamton.edu", html)
 

@@ -1,8 +1,0 @@
-<svg viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="markGrad" x1="120" y1="150" x2="600" y2="570" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#19E6C9"/><stop offset="0.52" stop-color="#0EA5E9"/><stop offset="1" stop-color="#04111F"/></linearGradient></defs>
-  <rect width="720" height="720" rx="120" fill="#07111F"/>
-  <g transform="translate(10 58)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M120 95 V510" stroke="url(#markGrad)" stroke-width="34"/><path d="M120 305 L430 95" stroke="url(#markGrad)" stroke-width="34"/><path d="M120 305 L430 510" stroke="url(#markGrad)" stroke-width="34"/><path d="M410 510 L535 280 L670 510" stroke="#19E6C9" stroke-width="34"/><path d="M190 95 H430" stroke="#19E6C9" stroke-width="12"/><path d="M120 510 H325" stroke="#E2E8F0" stroke-width="12"/><path d="M430 95 C545 160 700 285 670 510" stroke="#334155" stroke-width="8" opacity="0.75"/>
-    <circle cx="120" cy="95" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="430" cy="95" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="120" cy="510" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/><circle cx="670" cy="510" r="22" fill="#07111F" stroke="#19E6C9" stroke-width="12"/>
-  </g>
-</svg>

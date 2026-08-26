@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>FastUMI Tools</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -26,10 +25,12 @@
 
   <div class="app-shell">
     <aside class="sidebar" aria-label="FastUMI Tools">
-      <div class="brand">
-        <img src="/kuaimi-mark.svg" alt="" class="brand-mark">
-        <div class="brand-copy"><strong>FastUMI</strong><small>Tools</small></div>
+      <div class="product-plate">
+        <small>DEVICE OPS / FUMI</small>
+        <strong>FastUMI Tools</strong>
+        <div class="side-status" role="status"><span id="side-dot" class="pulse-dot warning"></span><div><strong id="side-status">正在连接</strong><small id="side-host">本机服务</small></div></div>
       </div>
+      <div class="nav-label" data-i18n="nav.workspace">工作区</div>
       <nav id="nav" aria-label="Primary navigation">
         <button class="nav-item active" data-view="overview" aria-current="page"><svg><use href="#icon-overview"/></svg><span data-i18n="nav.overview">总览</span></button>
         <button class="nav-item" data-view="resources"><svg><use href="#icon-package"/></svg><span data-i18n="nav.resources">SDK 和固件</span></button>
@@ -37,7 +38,8 @@
         <button class="nav-item" data-view="camera"><svg><use href="#icon-camera"/></svg><span data-i18n="nav.camera">相机工具</span></button>
         <button class="nav-item" data-view="activity"><svg><use href="#icon-activity"/></svg><span data-i18n="nav.activity">任务与日志</span><i id="task-dot" aria-hidden="true"></i></button>
       </nav>
-      <div class="side-status" role="status"><span id="side-dot" class="pulse-dot warning"></span><div><strong id="side-status">正在连接</strong><small id="side-host">本机服务</small></div></div>
+      <div class="side-spacer"></div>
+      <div class="north-index"><b>N · DEVICE FIELD</b><span id="side-coordinate">USB / LOCAL</span></div>
       <div class="side-version">FastUMI Tools <span id="side-version">—</span></div>
     </aside>
 
@@ -51,7 +53,7 @@
           <details id="settings-menu" class="settings-menu">
             <summary id="settings-toggle" class="icon-button" aria-label="设置"><svg><use href="#icon-settings"/></svg></summary>
             <div class="settings-popover">
-              <div class="settings-head"><div><strong data-i18n="settings.title">设置</strong><small data-i18n="settings.subtitle">界面偏好</small></div><span data-i18n="settings.preset">北辰蓝</span></div>
+              <div class="settings-head"><div><strong data-i18n="settings.title">设置</strong><small data-i18n="settings.subtitle">界面偏好</small></div></div>
               <div class="settings-group"><span data-i18n="settings.language">语言</span><div class="segmented" role="group" aria-label="语言"><button type="button" data-locale-option="zh-CN">简体中文</button><button type="button" data-locale-option="en">English</button></div></div>
               <div class="settings-group"><span data-i18n="settings.appearance">外观</span><div class="segmented three" role="group" aria-label="外观"><button type="button" data-theme-option="light" data-i18n="settings.light">浅色</button><button type="button" data-theme-option="dark" data-i18n="settings.dark">深色</button><button type="button" data-theme-option="system" data-i18n="settings.system">跟随系统</button></div></div>
               <div class="settings-legal"><strong>FastUMI Tools</strong><span>© 2026 FastUMI Team. All rights reserved.</span><a href="mailto:yding25@binghamton.edu">yding25@binghamton.edu</a></div>
@@ -62,24 +64,43 @@
 
       <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+      <div class="connection-rail" aria-label="Connection status">
+        <div class="rail-point"><span class="rail-node success"></span><span class="rail-copy"><b>HOST</b><span id="rail-host">—</span></span></div>
+        <div class="rail-point"><span class="rail-node telemetry"></span><span class="rail-copy"><b>LINK</b><span id="rail-link">—</span></span></div>
+        <div class="rail-point"><span class="rail-node telemetry"></span><span class="rail-copy"><b>TARGET</b><span id="rail-target">—</span></span></div>
+        <div class="rail-point"><span id="rail-state-node" class="rail-node"></span><span class="rail-copy"><b>STATE</b><span id="rail-state">—</span></span></div>
+      </div>
+
       <section id="view-overview" class="view active">
-        <article class="hero panel">
-          <div class="hero-copy">
-            <div id="hero-badge" class="status-badge warning"><span></span><b data-i18n="status.checking">正在检测</b></div>
-            <h2 data-i18n-html="overview.hero">一处管理所有<br><em>FastUMI</em> 工具</h2>
-            <p data-i18n="overview.copy">设备连接、版本诊断、SDK 与固件、ROS 数据和相机工具，集中在一个本机控制台。</p>
-          </div>
-          <div class="hero-signal" aria-hidden="true"><span></span><span></span><span></span><svg><use href="#icon-device"/></svg></div>
-        </article>
-        <div class="metrics">
-          <article class="metric panel"><span class="metric-icon">USB</span><div><small data-i18n="metric.devices">连接设备</small><strong id="metric-devices">—</strong><p id="metric-usb">—</p></div></article>
-          <article class="metric panel"><span class="metric-icon">SDK</span><div><small>XVSDK</small><strong id="metric-sdk">—</strong><p id="metric-sdk-detail">—</p></div></article>
-          <article class="metric panel"><span class="metric-icon">ROS</span><div><small>ROS Master</small><strong id="metric-ros">—</strong><p id="metric-topics">—</p></div></article>
-          <article class="metric panel"><span class="metric-icon">SYS</span><div><small data-i18n="metric.host">主机环境</small><strong id="metric-os">—</strong><p id="metric-disk">—</p></div></article>
+        <div class="overview-grid">
+          <article class="panel selected-device-panel">
+            <div class="panel-titlebar"><div><span class="panel-kicker">DEVICE / LIVE</span><h2 data-i18n="overview.selected">当前设备</h2></div><div id="device-badge" class="status-badge warning"><span></span><b data-i18n="status.checking">正在检测</b></div></div>
+            <div id="device-grid" class="device-grid"><div class="empty skeleton" data-i18n="common.loading">正在读取设备信息…</div></div>
+          </article>
+
+          <aside class="panel operation-path">
+            <div class="panel-titlebar"><div><span class="panel-kicker">OPERATION PATH</span><h2 data-i18n="overview.path">操作路径</h2></div><span class="path-count">03 / READY</span></div>
+            <div class="operation-links">
+              <button type="button" data-go="monitor"><span>01</span><div><b data-i18n="overview.preview">检查数据流</b><small data-i18n="overview.previewCopy">查看 ROS Topic、频率与可视化</small></div><strong>›</strong></button>
+              <button type="button" data-go="camera"><span>02</span><div><b data-i18n="overview.cameraTools">打开相机工具</b><small data-i18n="overview.cameraToolsCopy">预览画面或启动 RGB 标定</small></div><strong>›</strong></button>
+              <button type="button" data-go="resources"><span>03</span><div><b data-i18n="overview.maintenance">维护 SDK 与固件</b><small data-i18n="overview.maintenanceCopy">先验证环境，再执行高风险写入</small></div><strong>›</strong></button>
+            </div>
+            <div id="warning-list" class="notice-list"></div>
+          </aside>
+
+          <article class="panel telemetry-summary">
+            <div class="panel-titlebar"><div><span class="panel-kicker">SYSTEM READOUT</span><h2 data-i18n="overview.readout">运行读数</h2></div><span id="last-checked-inline" class="readout-time">—</span></div>
+            <div class="telemetry-grid">
+              <div><small data-i18n="metric.devices">连接设备</small><strong id="metric-devices">—</strong><span id="metric-usb">—</span></div>
+              <div><small>XVSDK</small><strong id="metric-sdk">—</strong><span id="metric-sdk-detail">—</span></div>
+              <div><small>ROS Master</small><strong id="metric-ros">—</strong><span id="metric-topics">—</span></div>
+              <div><small data-i18n="metric.host">主机环境</small><strong id="metric-os">—</strong><span id="metric-disk">—</span></div>
+            </div>
+          </article>
         </div>
-        <div class="section-heading"><div><span data-i18n="section.hardware">设备</span><h2 data-i18n="overview.connected">已连接设备</h2></div><button class="text-button" type="button" data-go="monitor" data-i18n="overview.toMonitor">进入监控 →</button></div>
-        <div id="device-grid" class="device-grid"><div class="empty panel skeleton" data-i18n="common.loading">正在读取设备信息…</div></div>
-        <div id="warning-list" class="notice-list"></div>
+
+        <div class="section-heading"><div><span data-i18n="section.hardware">设备</span><h2 data-i18n="overview.inventory">设备清单</h2></div><button class="text-button" type="button" data-go="monitor" data-i18n="overview.toMonitor">进入监控 →</button></div>
+        <div id="device-inventory" class="device-inventory panel"><div class="empty" data-i18n="common.loading">正在读取设备信息…</div></div>
       </section>
 
       <section id="view-resources" class="view">
