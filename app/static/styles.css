@@ -443,7 +443,7 @@ footer { max-width: 1440px; margin: var(--gui-space-12) auto 0; padding: var(--g
 /* Device workspace: quiet navigation, one selected object, focused tools. */
 .sidebar { padding: 16px 12px; gap: 4px; }
 .product-plate { display: flex; align-items: center; gap: 12px; padding: 8px 10px 20px; }
-.product-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 auto; border: 1px solid var(--gui-color-border); border-radius: 10px; background: var(--gui-color-surface); color: var(--gui-color-info); }
+.product-icon { display: block; width: 36px; height: 36px; flex: 0 0 auto; }
 .product-plate strong, .product-plate small { display: block; }
 .product-plate strong { font-size: 16px; letter-spacing: -.02em; }
 .product-plate small { margin-top: 2px; color: var(--gui-color-text-muted); font-size: 12px; }

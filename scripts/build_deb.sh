@@ -31,9 +31,14 @@ install -m 0755 "$PROJECT_ROOT/packaging/postrm" "$STAGE/DEBIAN/postrm"
 install -m 0644 "$PROJECT_ROOT/packaging/systemd/fastumi-tools.service" "$STAGE/usr/lib/systemd/system/fastumi-tools.service"
 install -m 0644 "$PROJECT_ROOT/packaging/desktop/fastumi-tools.desktop" "$STAGE/usr/share/applications/fastumi-tools.desktop"
 install -m 0644 "$PROJECT_ROOT/packaging/desktop/fastumi-tools.svg" "$STAGE/usr/share/icons/hicolor/scalable/apps/fastumi-tools.svg"
+for size in 16 24 32 48 64 128 256 512; do
+  install -d "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps"
+  install -m 0644 "$PROJECT_ROOT/app/static/icons/fastumi-tools-${size}.png" "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps/fastumi-tools.png"
+done
 install -m 0755 "$PROJECT_ROOT/packaging/fastumi-tools-open" "$STAGE/usr/local/bin/fastumi-tools-open"
 install -m 0755 "$PROJECT_ROOT/packaging/fastumi-tools-cli" "$STAGE/usr/bin/fastumi-tools"
 install -m 0644 "$PROJECT_ROOT/packaging/fastumi-tools.conf" "$STAGE/etc/fastumi-tools.conf"
+printf '%s\n' /etc/fastumi-tools.conf > "$STAGE/DEBIAN/conffiles"
 install -d -m 0755 "$STAGE/var/lib/fastumi-tools/payloads"
 
 PACKAGE="$OUTPUT_DIR/fastumi-tools_${VERSION}_amd64.deb"
