@@ -29,14 +29,15 @@ class FrontendTests(unittest.TestCase):
         for theme in ("light", "dark", "system"):
             self.assertIn('data-theme-option="%s"' % theme, html)
         self.assertIn('"light","dark","system"', javascript)
-        self.assertIn("--gui-color-primary: #2457d6", stylesheet)
-        self.assertIn("--gui-color-telemetry: #147f8e", stylesheet)
-        self.assertIn("--gui-control-height: 38px", stylesheet)
-        self.assertIn('class="connection-rail"', html)
+        self.assertIn("--gui-color-primary: #007aff", stylesheet)
+        self.assertIn("--gui-color-sidebar: #ebedf1", stylesheet)
+        self.assertIn("--gui-control-height: 34px", stylesheet)
+        self.assertIn('id="device-list"', html)
+        self.assertNotIn('class="connection-rail"', html)
         self.assertNotIn("--gui-color-primary: #2563eb", stylesheet)
         self.assertNotIn("ambient-one", html)
         combined = html + javascript + stylesheet
-        for branding in ("北辰蓝", "POLARIS FIELD", "Polaris Blue", "kuaimi-mark.svg", "favicon.svg"):
+        for branding in ("RackTop", "DEVICE OPS", "N · DEVICE FIELD", "CAM / FRONT", "北辰蓝", "POLARIS FIELD", "Polaris Blue", "kuaimi-mark.svg", "favicon.svg"):
             self.assertNotIn(branding, combined)
         self.assertFalse((ROOT / "app/static/kuaimi-mark.svg").exists())
         self.assertFalse((ROOT / "app/static/favicon.svg").exists())
