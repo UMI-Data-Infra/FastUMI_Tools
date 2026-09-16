@@ -2,14 +2,19 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+except ImportError:  # CI tests the core package before runtime dependencies are installed.
+    cv2 = None
+    np = None
 
 spec = importlib.util.spec_from_file_location('camera_preview', Path(__file__).resolve().parents[1] / 'app/tools/camera_preview.py')
 preview = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preview)
 
 
+@unittest.skipUnless(cv2 is not None and np is not None, "OpenCV and NumPy are runtime dependencies")
 class CameraDecodeTests(unittest.TestCase):
     def test_yuyv_two_channel_frame_is_converted_before_display(self):
         raw = np.full((4, 6, 2), 128, dtype=np.uint8)
