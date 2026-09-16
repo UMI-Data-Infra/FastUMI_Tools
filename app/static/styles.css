@@ -574,3 +574,9 @@ select { min-width: 0; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+.capture-recommendation { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--gui-color-border); border-radius: 12px; background: var(--gui-color-surface); }
+.capture-recommendation > div { flex: 1 1 280px; min-width: 0; }
+.capture-recommendation strong { color: var(--gui-color-text); }
+.capture-recommendation p { margin: 6px 0 0; color: var(--gui-color-text-muted); line-height: 1.6; }
+.capture-recommendation .button { flex: 0 1 auto; white-space: normal; }

@@ -200,3 +200,28 @@ XVISION_PROBE_JSON_END
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VideoNodeTests(unittest.TestCase):
+    def test_metadata_node_is_not_capture_despite_global_capabilities(self):
+        report = '''Driver name : uvcvideo
+Card type : HD Webcam
+Capabilities : 0x84a00001
+    Video Capture
+    Metadata Capture
+Device Caps : 0x04a00000
+    Metadata Capture
+    Streaming
+'''
+        with patch.object(system_info.glob, 'glob', return_value=['/dev/video999']), patch.object(system_info.shutil, 'which', return_value='/usr/bin/v4l2-ctl'), patch.object(system_info, 'run_command', return_value=(report, None)):
+            device = system_info.video_devices()[0]
+        self.assertFalse(device['previewable'])
+        self.assertFalse(device['capture'])
+        self.assertTrue(device['metadata'])
+
+    def test_capture_node_survives_global_metadata_capability(self):
+        report = 'Card type : HD Webcam\nCapabilities : 0x84a00001\n Video Capture\n Metadata Capture\nDevice Caps : 0x04200001\n Video Capture\n'
+        with patch.object(system_info.glob, 'glob', return_value=['/dev/video999']), patch.object(system_info.shutil, 'which', return_value='/usr/bin/v4l2-ctl'), patch.object(system_info, 'run_command', return_value=(report, None)):
+            device = system_info.video_devices()[0]
+        self.assertTrue(device['previewable'])
+        self.assertFalse(device['metadata'])

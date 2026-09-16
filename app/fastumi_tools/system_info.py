@@ -646,6 +646,12 @@ def video_devices() -> List[Dict[str, Any]]:
     result: List[Dict[str, Any]] = []
     for name in sorted(glob.glob("/dev/video*")):
         item: Dict[str, Any] = {"path": name, "name": Path(name).name}
+        sys_device = Path("/sys/class/video4linux") / Path(name).name / "device"
+        for parent in sys_device.resolve().parents:
+            if read_text(parent / "idVendor"):
+                item["usb_path"] = parent.name
+                item["fastumi"] = read_text(parent / "idVendor").lower() == "040e"
+                break
         if shutil.which("v4l2-ctl"):
             output, _ = run_command(["v4l2-ctl", "-d", name, "--all"], timeout=3)
             for line in output.splitlines():
@@ -657,10 +663,15 @@ def video_devices() -> List[Dict[str, Any]]:
                     item["capabilities"] = line.split(":", 1)[1].strip()
             label = str(item.get("label", ""))
             capabilities = str(item.get("capabilities", ""))
-            # v4l2-ctl prints the capability names on lines following the
-            # hexadecimal Device Caps value, so inspect the complete report.
-            item["capture"] = "Video Capture" in output or not output
-            item["metadata"] = "Metadata Capture" in output and "Video Capture" not in output
+            # The global Capabilities describe all nodes on the camera. Only
+            # Device Caps describe this node (a metadata node cannot read frames).
+            try:
+                caps = int(capabilities, 16)
+            except ValueError:
+                caps = None
+            report = output.split("Device Caps", 1)[-1]
+            item["capture"] = bool(caps & (0x1 | 0x1000)) if caps is not None else "Video Capture" in report or not output
+            item["metadata"] = bool(caps & 0x00800000) if caps is not None else "Metadata Capture" in report
             if "UVC_RGB" in label:
                 item["role"] = "rgb"
                 item["format"] = "NV12"
@@ -673,6 +684,12 @@ def video_devices() -> List[Dict[str, Any]]:
             else:
                 item["role"] = "webcam"
             item["previewable"] = bool(item["capture"] and not item["metadata"])
+            if item["previewable"] and item.get("fastumi") and "UVC_" not in label:
+                formats, _ = run_command(["v4l2-ctl", "-d", name, "--list-formats-ext"], timeout=3)
+                if "'YU12'" in formats:
+                    item["role"] = "rgb"
+                    item["format"] = "YU12"
+                    item["simple_camera"] = True
         else:
             item["capture"] = True
             item["previewable"] = True
@@ -770,7 +787,7 @@ def collect_status(project_version: str) -> Dict[str, Any]:
                 warnings.append("历史固件结果与软件记录的刷新目标不一致；请获取当前会话读数后再判断。")
                 warning_codes.append("firmware_unverified_mismatch")
             break
-    if devices and not videos:
+    if devices and not any(video.get("fastumi") and video.get("previewable") for video in videos):
         if ros.get("driver_running"):
             warnings.append("ROS 数据源正在独占相机；停止数据源后可恢复实时画面预览。")
             warning_codes.append("ros_owns_camera")

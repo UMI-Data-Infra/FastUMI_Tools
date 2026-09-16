@@ -70,3 +70,7 @@ assert.equal(ui.node('preflight-firmware').disabled,true);
 ui.run('state.serviceConnected=false;state.operation.preview_running=true;renderMonitor();renderCamera()');
 for (const id of ['start-ros-driver','stop-ros-driver','start-preview','stop-preview','restore-camera','start-calibration']) assert.equal(ui.node(id).disabled,true,id);
 console.log('PASS: preferences, device selection, hot unplug, escaping, service and firmware gates');
+ui.run('state.serviceConnected=true; state.operation={status:"idle"}; state.status.ros={driver_unit_active:true,driver_node_online:false}; renderMonitor()');
+assert.equal(ui.node('stop-ros-driver').disabled,false,'crashed managed node can be stopped even with a built-in webcam');
+ui.run('state.status.video_devices=[{path:"/dev/video0",role:"webcam",previewable:true},{path:"/dev/video1",previewable:false}];renderCamera()');
+assert.doesNotMatch(ui.node('video-device').innerHTML,/video1/,'metadata node is excluded');

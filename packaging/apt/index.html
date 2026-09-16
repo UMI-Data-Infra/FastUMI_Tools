@@ -19,6 +19,8 @@ sudo sh install-fastumi-repository.sh --install</pre>
   <p>配置软件源后，可以随时安装或升级：</p>
   <pre>sudo apt update
 sudo apt install fastumi-tools</pre>
+  <h2>简易相机推荐 OpenCV 直读</h2>
+  <p>只读取图像时，无需 ROS，也无需安装或切换一代 / 二代 XVSDK。打开“相机工作台”，保留“自动识别”并点击“启动 OpenCV 直读”。需要 SLAM、位姿或 IMU 时，再使用匹配代际的 SDK 与 ROS。</p>
   <h2>启动与检查</h2>
   <p>安装后从应用菜单打开 <strong>FastUMI Tools</strong>。将相机连接到 USB 3.x 接口，然后在“SDK 和固件”页面确认相机序列号、连接速率以及设备实际报告的版本。</p>
   <p>刷新固件时只连接一台相机，过程中不要拔线或断电。ROS 数据源与实时预览不能同时运行；预览可通过 Web 页面中的“关闭预览”停止。</p>

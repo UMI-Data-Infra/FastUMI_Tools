@@ -1,5 +1,7 @@
 # FastUMI Tools
 
+> **简易相机推荐使用 OpenCV 直读。** 只读取图像时，不需要 ROS，也不需要安装或切换一代 / 二代 XVSDK。在“相机工作台”保留“自动识别”，点击“启动 OpenCV 直读”。需要 SLAM、位姿或 IMU 时，再安装匹配代际的 SDK 并使用 ROS。
+
 FastUMI Tools 是 FastUMI 设备的一体化本机管理控制台。它将原先分散在版本检测、`FastUMI_SDK`、`FastUMI_Monitor` 和 `FastUMI_Camera` 中的常用能力集中到一个简洁的 Web 界面中。
 
 项目版本以根目录的 [`VERSION`](VERSION) 为唯一来源；已发布版本及安装包见 [GitHub Releases](https://github.com/UMI-Data-Infra/FastUMI_Tools/releases)。
@@ -51,6 +53,11 @@ http://127.0.0.1:8765
 自动读取只会在设备空闲时运行；检测到 ROS、实时预览或其他进程占用后会等待释放。探测器使用资源包中的隔离运行库，不会把 XVSDK 安装到系统目录，并会在读取后恢复 UVC 接口。管理员可在 `/etc/fastumi-tools.conf` 中设置 `FASTUMI_AUTO_DEVICE_PROBE=0` 关闭自动探测。
 
 ### 数据监控、预览与标定
+
+- 简易相机无需 ROS：在“相机工具 → OpenCV 直读预览”选择相机，保留“自动识别”并启动。简易 XVisio 相机自动选择 YU12 RGB；普通摄像头由 OpenCV 自动解码。
+- 可手动选择 YU12、NV12、灰度、MJPEG、YUYV 图像流。窗口显示实际协商的分辨率和帧率；驱动报告的帧率可能与实测帧率不同。
+- 若相机已被 ROS 占用，先点击“停止 ROS 并恢复视频设备”；关闭窗口、按 q / Esc 或点击“关闭预览窗口”均会释放设备。
+- 0.2.7 的 ROS1 Wrapper 安装会应用无效时间戳过滤和缺失鱼眼标定的越界修复。已有 wrapper 请重新点击“安装 ROS1 Wrapper”以应用修复；软件升级本身不会覆盖用户的 catkin 工作区。
 
 - “数据监控”中的 ROS 数据源与“相机工具”中的实时预览会占用同一相机接口，不能同时运行。
 - 使用 SLAM、Visual Pose、Topic 频率和 RViz 轨迹前，先在“数据监控”中启动 ROS 数据源。

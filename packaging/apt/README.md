@@ -1,5 +1,7 @@
 # FastUMI Tools 官方 APT 软件源
 
+> **简易相机推荐使用 OpenCV 直读。** 只读取图像时，不需要 ROS，也不需要安装或切换一代 / 二代 XVSDK。在“相机工作台”保留“自动识别”，点击“启动 OpenCV 直读”。需要 SLAM、位姿或 IMU 时，再安装匹配代际的 SDK 并使用 ROS。
+
 这里是 FastUMI Team 发布的官方签名二进制软件源，面向 **Ubuntu 20.04 LTS（Focal）amd64**。源代码不在本公开仓库中提供。
 
 ## 安装

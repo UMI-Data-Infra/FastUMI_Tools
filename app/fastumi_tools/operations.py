@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from .catalog import Catalog, CatalogError
+from .ros_wrapper import patch_ros_wrapper
 from .system_info import (
     APP_ROOT,
     SERIAL_PATTERN,
@@ -320,6 +321,7 @@ class OperationManager:
             "topic-check": self.check_topic,
             "rviz-launch": self.launch_rviz,
             "camera-preview": self.launch_camera_preview,
+            "camera-opencv": self.launch_camera_preview,
             "camera-preview-stop": self.stop_camera_preview,
             "calibration-launch": self.launch_calibration,
             "ros-wrapper-install": self.install_ros_wrapper,
@@ -1071,7 +1073,7 @@ class OperationManager:
             fps = int(payload.get("fps", 60))
         except (TypeError, ValueError) as exc:
             raise OperationError(self.tr("画面参数格式不正确。", "Invalid preview parameter format.")) from exc
-        if width not in (640, 1280, 1920) or height not in (480, 720, 1080, 1280) or fps not in (30, 60, 100):
+        if width not in (640, 1280, 1920) or height not in (480, 720, 1080, 1280, 1920) or fps not in (15, 30, 60, 100):
             raise OperationError(self.tr("不支持的分辨率或帧率。", "Unsupported resolution or frame rate."))
         details = next((item for item in video_devices() if item.get("path") == device), None)
         if details and not details.get("previewable", True):
@@ -1079,7 +1081,14 @@ class OperationManager:
                 "所选视频节点不是可预览的图像采集节点，请选择 RGB、鱼眼或 ToF 节点。",
                 "The selected video node is not a previewable capture stream. Choose an RGB, fisheye, or ToF node.",
             ))
-        pixel_format = str((details or {}).get("format") or "NV12")
+        pixel_format = str((details or {}).get("format") or "AUTO")
+        requested_format = str(payload.get("format", "AUTO"))
+        if requested_format not in ("AUTO", "YU12", "NV12", "Y8", "Y16", "MJPG", "YUYV"):
+            raise OperationError(self.tr("不支持的图像格式。", "Unsupported pixel format."))
+        if requested_format != "AUTO":
+            pixel_format = requested_format
+        if (details or {}).get("fastumi") and self.ros_driver_active():
+            raise OperationError(self.tr("ROS 正在占用相机，请先点击“停止 ROS 并恢复视频设备”。", "ROS owns this camera. Stop ROS and restore video devices first."))
         script = APP_ROOT / "tools" / "camera_preview.py"
         dependency_check = subprocess.run(
             ["/usr/bin/python3", "-c", "import cv2,numpy"],
@@ -1277,6 +1286,10 @@ class OperationManager:
         destination = workspace / "src" / "xv_sdk"
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(str(source), str(destination), dirs_exist_ok=True)
+        try:
+            patch_ros_wrapper(destination)
+        except ValueError as exc:
+            raise OperationError(str(exc)) from exc
         if payload.get("clean"):
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             for generated in (workspace / "build", workspace / "devel"):
@@ -1323,7 +1336,7 @@ class OperationManager:
     def ros_topic_list(self) -> List[str]:
         try:
             result = subprocess.run(
-                ["/bin/bash", "-lc", "source /opt/ros/noetic/setup.bash; rostopic list"],
+                ["/bin/bash", "-lc", "source /opt/ros/noetic/setup.bash; %srostopic list" % ROS_LOCAL_ENV],
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 timeout=4, check=False,
             )
@@ -1333,8 +1346,29 @@ class OperationManager:
             return []
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
+    def ros_stream_ready(self, serials: List[str]) -> bool:
+        if not serials:
+            return False
+        probe = APP_ROOT / "tools" / "ros_stream_probe.py"
+        command = "source /opt/ros/noetic/setup.bash; %sexec /usr/bin/python3 %s %s" % (
+            ROS_LOCAL_ENV, shlex.quote(str(probe)), shlex.join(serials),
+        )
+        try:
+            result = subprocess.run(
+                ["/bin/bash", "-lc", command], text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, timeout=13, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        if result.returncode == 0:
+            self.log(result.stdout.strip())
+            return True
+        return False
+
     def start_ros_driver(self, payload: Dict[str, Any]) -> None:
         self.require_root()
+        if self.gui_process_running("camera-preview"):
+            raise OperationError(self.tr("请先关闭相机预览，再启动 ROS 数据源。", "Close camera preview before starting ROS."))
         if self.ros_driver_active():
             if self.ros_driver_node_online():
                 self.log(self.tr("FastUMI ROS 数据源已经在运行。", "The FastUMI ROS data source is already running."))
@@ -1380,18 +1414,27 @@ class OperationManager:
                 break
             topics = self.ros_topic_list()
             if any(topic.startswith("/xv_sdk/%s/" % serial) for serial in serials for topic in topics):
-                self.log(self.tr("ROS 数据源已就绪，共发现 %d 个 Topic。", "ROS data source is ready; %d Topics found.") % len(topics))
-                return
+                if self.ros_stream_ready(serials):
+                    # The vendor initializes more streams after advertising its
+                    # first topics. Catch a crash during this later startup too.
+                    time.sleep(3)
+                    if self.ros_driver_node_online():
+                        self.log(self.tr("ROS 数据源已就绪，已收到连续有效数据，共发现 %d 个 Topic。", "ROS data source is ready with valid samples; %d Topics found.") % len(topics))
+                        return
+                    break
             time.sleep(1)
         journal = subprocess.run(
             ["journalctl", "-u", ROS_DRIVER_UNIT, "--no-pager", "-n", "40"],
             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
         ).stdout.strip()
         subprocess.run(["systemctl", "stop", ROS_DRIVER_UNIT], check=False)
-        self.restore_uvc()
         if journal:
             self.log(journal)
-        raise OperationError(self.tr("ROS 数据源启动失败：30 秒内未发现相机 Topic。", "ROS data source startup failed: no camera Topic appeared within 30 seconds."))
+        try:
+            self.restore_uvc()
+        except OperationError as exc:
+            self.log(str(exc))
+        raise OperationError(self.tr("ROS 数据源启动失败：节点退出或未收到有效相机数据，请查看上方驱动日志。", "ROS startup failed: the node exited or no valid camera data arrived. See the driver log above."))
 
     def restore_uvc(self) -> None:
         self.require_root()
@@ -1430,7 +1473,7 @@ class OperationManager:
             raise OperationError(self.tr("没有找到可恢复的 FastUMI UVC 接口。", "No restorable FastUMI UVC interface was found."))
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            if list(Path("/dev").glob("video*")):
+            if any(item.get("fastumi") and item.get("previewable") for item in video_devices()):
                 self.log(self.tr("UVC 视频设备已恢复。", "UVC video devices restored."))
                 return
             time.sleep(0.2)
